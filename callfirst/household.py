@@ -66,6 +66,7 @@ class Visit:
 class Household:
     id: str
     doorbell: str
+    resident: str = "the resident"   # a first name, used in alerts: "call Margaret now"
     chime: str | None = None
     sensor: str | None = None
     timezone: str = "America/New_York"

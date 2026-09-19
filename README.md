@@ -48,7 +48,7 @@ without a door sensor a handover under a minute is missed.
 ## Security
 
 The system knows when an older person is alone and it faces people who are
-already manipulating her. Four threats, each with tests:
+already manipulating them. Four threats, each with tests:
 
 | Threat | Defence | Tests |
 |---|---|---|
@@ -57,21 +57,38 @@ already manipulating her. Four threats, each with tests:
 | Forged or replayed webhooks | HMAC over the raw body before parsing, freshness from the signed body, one action per `request_id` | `test_webhooks.py`, `test_app.py` |
 | The schedule leaks | households, alerts and the journal encrypted at rest; one call deletes everything | `test_app.py` |
 
-`python scripts/mutate.py` breaks 20 of these rules one at a time; the suite
-catches all 20.
+`python scripts/mutate.py` breaks 26 of these rules one at a time; the suite
+catches all 26.
+
+## Who sees what
+
+- **The resident** opens their own link and controls everything: switch on and
+  off, pause, expected visits and deliveries, who is told, delete it all.
+- **A trusted person** opens theirs and sees whether the protection is on, the
+  alerts with their images, and a report sheet for each incident, ready for
+  [IC3](https://www.ic3.gov) and the [FTC](https://reportfraud.ftc.gov). Never
+  the schedule. They can stop receiving alerts; the others are told.
+- Links are exchanged once for an HttpOnly, SameSite=Strict cookie and stored
+  only as hashes. Pages load nothing from other origins (strict CSP).
 
 ## Run it
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 79 tests
+.venv/Scripts/python -m pytest              # 99 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```
 
 `scripts/live.py` starts the emulator and the service, registers a webhook,
 plays a courier visit and checks that the chime played inside the emulator and
-the family was told.
+the family was emailed, with the image.
+
+`scripts/demo.py` does the same setup, prints Margaret's and Sarah's links, and
+lets you play the front door from the keyboard (`r` ring, `o` door opens...).
+Alert emails land in `data/demo/mail/`. With `ANTHROPIC_API_KEY` set, pasted
+delivery messages are read by a model (it proposes; code decides); without it,
+by rules.
 
 ## Built on
 

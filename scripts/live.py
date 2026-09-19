@@ -41,6 +41,8 @@ def main() -> int:
     data = ROOT / "data" / "live"
     data.mkdir(parents=True, exist_ok=True)
     (data / "callfirst.db").unlink(missing_ok=True)
+    for old in (data / "mail").glob("*.eml"):
+        old.unlink()
     env = dict(os.environ, CALLFIRST_KEY=Fernet.generate_key().decode(),
                RING_WEBHOOK_KEY=signing, CALLFIRST_ADMIN_TOKEN=admin,
                RING_API_BASE=RING, RING_TOKEN="sandbox", CALLFIRST_DATA=str(data))
@@ -67,11 +69,14 @@ def run(signing: str, admin: dict) -> int:
     sensor = devices["Front Door Sensor"]
     ring.post("/_sandbox/webhooks", json={"url": f"{APP}/webhooks/ring", "signing_key": signing})
 
-    app.post("/api/households", json={
-        "id": "live", "doorbell": doorbell, "chime": chime, "sensor": sensor,
-        "timezone": "UTC", "trusted": [{"name": "Sarah", "email": "sarah@example.com"}]}
-    ).raise_for_status()
-    app.post("/api/households/live/on").raise_for_status()
+    created = app.post("/api/households", json={
+        "id": "live", "resident": "Margaret", "doorbell": doorbell, "chime": chime,
+        "sensor": sensor, "timezone": "UTC",
+        "trusted": [{"name": "Sarah", "email": "sarah@example.com"}]})
+    created.raise_for_status()
+    resident = httpx.Client(base_url=APP)
+    resident.get(created.json()["resident_link"].removeprefix(APP))
+    resident.post("/api/resident/on").raise_for_status()
 
     def inject(kind, device, sub_type=None):
         ring.post("/_sandbox/events", json={"type": kind, "device_id": device,
@@ -86,8 +91,9 @@ def run(signing: str, admin: dict) -> int:
               if d.get("kind") == "chime.play"]
     hooks = [d for d in ring.get("/_sandbox/state").json().get("delivered", [])
              if d.get("kind") == "webhook"]
-    state = app.get("/api/households/live").json()
-    alerts = [s for s in state["sent"] if s["kind"] == "alert" and s["reason"] == "answered"]
+    alerts = [a for a in resident.get("/api/resident").json()["alerts"]
+              if a["reason"] == "answered"]
+    mails = sorted((ROOT / "data" / "live" / "mail").glob("*.eml"))
 
     # A forged webhook, straight at the service, without Ring's key.
     forged = httpx.post(f"{APP}/webhooks/ring", content=b'{"meta":{},"data":{}}',
@@ -100,6 +106,9 @@ def run(signing: str, admin: dict) -> int:
         "one strong alert, with the doorbell's still": len(alerts) == 1
             and alerts[0]["confidence"] == "strong" and alerts[0]["image"],
         "forged webhook refused (401)": forged.status_code == 401,
+        "alert email written, with the image": bool(mails)
+            and b"door was answered" in mails[-1].read_bytes()
+            and b"Content-Type: image/" in mails[-1].read_bytes(),
     }
     for name, ok in checks.items():
         print(f"{'PASS' if ok else 'FAIL'}  {name}")

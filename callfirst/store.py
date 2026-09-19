@@ -6,7 +6,10 @@ the key lives in the environment, never in the database or the repository.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
+import secrets
 import sqlite3
 import threading
 from datetime import datetime, timedelta
@@ -23,14 +26,24 @@ create table if not exists seen (request_id text primary key, at text not null);
 create table if not exists outbox (
     id integer primary key autoincrement, household text not null, at text not null,
     kind text not null, body blob not null);
+create table if not exists access (
+    token_hash text primary key, household text not null, role text not null,
+    email_key text, email blob);
 create table if not exists journal (
     id integer primary key autoincrement, household text, at text not null, text blob not null);
 """
 
 
+def _hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 class Store:
     def __init__(self, path: str | Path, key: str | bytes):
         self._fernet = Fernet(key)
+        # Keyed, so a copy of the database cannot confirm a guessed address.
+        self._pepper = hashlib.sha256(b"callfirst-email:" + (key if isinstance(key, bytes)
+                                                              else key.encode())).digest()
         self._db = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
         self._db.executescript(SCHEMA)
         self._lock = threading.Lock()
@@ -59,7 +72,8 @@ class Store:
         """Ring's policy: one action removes everything held for a household."""
         with self._lock:
             for table, column in (("households", "id"), ("devices", "household"),
-                                  ("outbox", "household"), ("journal", "household")):
+                                  ("outbox", "household"), ("journal", "household"),
+                                  ("access", "household")):
                 self._db.execute(f"delete from {table} where {column} = ?", (household_id,))
 
     def all_ids(self) -> list[str]:
@@ -82,16 +96,57 @@ class Store:
 
     # ------------------------------------------------------------------ what was said
 
-    def send(self, household_id: str, at: str, kind: str, body: dict) -> None:
+    def send(self, household_id: str, at: str, kind: str, body: dict) -> int:
         blob = self._fernet.encrypt(json.dumps(body).encode())
-        self._db.execute("insert into outbox (household, at, kind, body) values (?, ?, ?, ?)",
-                         (household_id, at, kind, blob))
+        cursor = self._db.execute(
+            "insert into outbox (household, at, kind, body) values (?, ?, ?, ?)",
+            (household_id, at, kind, blob))
+        return cursor.lastrowid
 
     def sent(self, household_id: str) -> list[dict]:
-        rows = self._db.execute("select at, kind, body from outbox where household = ? "
+        rows = self._db.execute("select id, at, kind, body from outbox where household = ? "
                                 "order by id", (household_id,))
-        return [{"at": at, "kind": kind, **json.loads(self._fernet.decrypt(body))}
-                for at, kind, body in rows]
+        return [{"id": id_, "at": at, "kind": kind, **json.loads(self._fernet.decrypt(body))}
+                for id_, at, kind, body in rows]
+
+    def one_sent(self, household_id: str, sent_id: int) -> dict | None:
+        """Scoped to the household: an id from another household reads as missing."""
+        row = self._db.execute("select id, at, kind, body from outbox where household = ? "
+                               "and id = ?", (household_id, sent_id)).fetchone()
+        if not row:
+            return None
+        return {"id": row[0], "at": row[1], "kind": row[2],
+                **json.loads(self._fernet.decrypt(row[3]))}
+
+    # ------------------------------------------------------------------ who may look
+
+    def grant(self, household_id: str, role: str, email: str | None = None) -> str:
+        """A new access link token. Only its hash is kept: a stolen database
+        opens no page."""
+        token = secrets.token_urlsafe(32)
+        with self._lock:
+            if email:
+                self.revoke(household_id, email)
+            self._db.execute("insert into access values (?, ?, ?, ?, ?)",
+                             (_hash(token), household_id, role, self._email_key(email),
+                              self._fernet.encrypt(email.encode()) if email else None))
+        return token
+
+    def resolve(self, token: str) -> tuple[str, str, str | None] | None:
+        row = self._db.execute("select household, role, email from access where token_hash = ?",
+                               (_hash(token),)).fetchone()
+        if not row:
+            return None
+        return row[0], row[1], self._fernet.decrypt(row[2]).decode() if row[2] else None
+
+    def revoke(self, household_id: str, email: str) -> None:
+        self._db.execute("delete from access where household = ? and email_key = ?",
+                         (household_id, self._email_key(email)))
+
+    def _email_key(self, email: str | None) -> str | None:
+        if not email:
+            return None
+        return hmac.new(self._pepper, email.lower().encode(), hashlib.sha256).hexdigest()
 
     def note(self, household_id: str | None, at: str, text: str) -> None:
         # Encrypted too: a journal line like "visit added: carer" is the schedule.

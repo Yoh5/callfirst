@@ -1,17 +1,26 @@
-"""The service: Ring webhooks in, reminders and alerts out.
+"""The service: Ring webhooks in, reminders and alerts out, two small pages.
 
-    uvicorn callfirst.app:app --port 8000
+    uvicorn callfirst.app:app --port 8100
 
-Environment (see .env.example): CALLFIRST_KEY encrypts the database,
-RING_WEBHOOK_KEY verifies Ring's signatures, CALLFIRST_ADMIN_TOKEN guards the
-household API, RING_API_BASE / RING_TOKEN reach the Partner API (or the
-emulator).
+Who can do what:
+- Ring, with the webhook signing key: report what happens at the door.
+- The resident, through their own link: everything - switch on and off, pause,
+  declare visits and deliveries, choose who is told, delete it all.
+- A trusted person, through their own link: see the protection and the
+  alerts, open a report sheet, stop receiving alerts. Nothing else. They
+  never see the schedule.
+- The operator, with the admin token: create a household. In production this
+  is Ring's account linking; here it is how the demo starts.
+
+A link is exchanged once for an HttpOnly, SameSite=Strict cookie and the page
+redirects, so the token leaves the address bar and never reaches a Referer.
 """
 from __future__ import annotations
 
 import asyncio
 import base64
 import hmac
+import html
 import os
 import threading
 from contextlib import asynccontextmanager
@@ -21,14 +30,24 @@ from pathlib import Path
 from typing import Callable
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
-from . import deliveries, rules, webhooks
+from . import deliveries, notify, reader, rules, webhooks
 from .household import ExpectedVisit, Household, Trusted, iso
 from .ring import Ring
 from .store import Store
 
 TICK_SECONDS = 15
+COOKIE = "callfirst"
+STATIC = Path(__file__).parent / "static"
+HEADERS = {
+    "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; "
+                               "frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "no-store",
+}
 
 
 class TrustedIn(BaseModel):
@@ -38,6 +57,7 @@ class TrustedIn(BaseModel):
 
 class HouseholdIn(BaseModel):
     id: str = Field(pattern=r"^[a-z0-9-]{3,40}$")
+    resident: str = Field(min_length=1, max_length=60)
     doorbell: str
     chime: str | None = None
     sensor: str | None = None
@@ -73,8 +93,23 @@ def _now() -> datetime:
 
 
 def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: str,
-               clock: Callable[[], datetime] = _now, background: bool = True) -> FastAPI:
+               clock: Callable[[], datetime] = _now, background: bool = True,
+               mailer=None, base_url: str = "http://127.0.0.1:8100",
+               sender: str = "Call First <alerts@callfirst.invalid>",
+               read_notice: Callable = reader.read, secure_cookies: bool = False) -> FastAPI:
     lock = threading.Lock()    # one household decision at a time: load, decide, save
+
+    # ------------------------------------------------------------------ doing what was decided
+
+    def mail(h: Household, alert: dict, image: bytes | None, report_id: int | None) -> None:
+        if not mailer:
+            return
+        # One message per person: trusted people do not see each other's addresses.
+        for email in alert["recipients"]:
+            message = notify.compose(alert | {"recipients": [email]}, h.resident, h.timezone,
+                                     sender, base_url, image, report_id)
+            if not mailer.send(message):
+                store.note(h.id, alert["at"], "alert email FAILED")
 
     def act(h: Household, actions: list, at: str) -> None:
         for action in actions:
@@ -82,13 +117,18 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
                 played = bool(ring and h.chime and ring.play(h.chime, action.slot))
                 store.note(h.id, at, f"chime {action.slot}: {'played' if played else 'FAILED'}")
             elif isinstance(action, rules.Alert):
-                body = asdict(action)
+                body, image = asdict(action), None
                 if ring and action.snapshot_at and action.reason != "change":
                     image = ring.snapshot(h.doorbell, datetime.fromisoformat(action.snapshot_at))
                     body["image"] = base64.b64encode(image).decode() if image else None
-                store.send(h.id, action.at, "alert", body)
+                sent_id = store.send(h.id, action.at, "alert", body)
+                mail(h, body, image, None if action.reason == "change" else sent_id)
             elif isinstance(action, rules.Note):
                 store.note(h.id, at, action.text)
+
+    def invite(h: Household, person: Trusted, token: str) -> None:
+        if mailer:
+            mailer.send(notify.invitation(person, h.resident, sender, f"{base_url}/f/{token}"))
 
     def tick() -> None:
         now = clock()
@@ -109,10 +149,18 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         if task:
             task.cancel()
 
-    app = FastAPI(title="Call First", lifespan=lifespan, docs_url=None, redoc_url=None)
+    app = FastAPI(title="Call First", lifespan=lifespan, docs_url=None, redoc_url=None,
+                  openapi_url=None)
     app.state.tick = tick
 
-    # ------------------------------------------------------------------ webhooks
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        for name, value in HEADERS.items():
+            response.headers.setdefault(name, value)
+        return response
+
+    # ------------------------------------------------------------------ Ring
 
     @app.post("/webhooks/ring", status_code=204)
     async def ring_webhook(request: Request) -> Response:
@@ -138,14 +186,47 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         await asyncio.to_thread(act, h, actions, iso(now))
         return Response(status_code=204)
 
-    # ------------------------------------------------------------------ households
+    # ------------------------------------------------------------------ sessions
 
-    def admin(x_admin_token: str = Header(default="")) -> None:
-        if not admin_token or not hmac.compare_digest(x_admin_token.encode(),
-                                                      admin_token.encode()):
-            raise HTTPException(401, "admin token required")
+    def session(request: Request) -> tuple[str, str, str | None]:
+        token = request.cookies.get(COOKIE)
+        found = store.resolve(token) if token else None
+        if not found:
+            raise HTTPException(401, "open the link you were sent")
+        return found
 
-    def household(household_id: str) -> Household:
+    def resident(who=Depends(session)) -> str:
+        household_id, role, _ = who
+        if role != "resident":
+            raise HTTPException(403, "only the resident can change this")
+        return household_id
+
+    def family(who=Depends(session)) -> tuple[str, str]:
+        household_id, role, email = who
+        if role != "family":
+            raise HTTPException(403, "this page is for trusted people")
+        return household_id, email
+
+    def enter(token: str, role: str, page: str) -> Response:
+        found = store.resolve(token)
+        if not found or found[1] != role:
+            return HTMLResponse("<p>This link is not valid any more.</p>", status_code=404)
+        response = RedirectResponse(page, status_code=303)
+        response.set_cookie(COOKIE, token, httponly=True, samesite="strict",
+                            secure=secure_cookies, max_age=180 * 86400)
+        return response
+
+    @app.get("/r/{token}")
+    def resident_link(token: str) -> Response:
+        return enter(token, "resident", "/resident")
+
+    @app.get("/f/{token}")
+    def family_link(token: str) -> Response:
+        return enter(token, "family", "/family")
+
+    # ------------------------------------------------------------------ helpers
+
+    def load(household_id: str) -> Household:
         h = store.load(household_id)
         if h is None:
             raise HTTPException(404, "no such household")
@@ -154,84 +235,205 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
     def change(household_id: str, apply: Callable[[Household, datetime], list]) -> dict:
         now = clock()
         with lock:
-            h = household(household_id)
+            h = load(household_id)
             actions = apply(h, now)
             store.save(h)
         act(h, actions, iso(now))
-        return {"told": [a.recipients for a in actions if isinstance(a, rules.Alert)]}
+        return {"told": [list(a.recipients) for a in actions if isinstance(a, rules.Alert)]}
 
-    guarded = [Depends(admin)]
+    def local(h: Household, value: str | None) -> str | None:
+        return h.local(datetime.fromisoformat(value)).isoformat() if value else None
 
-    @app.post("/api/households", dependencies=guarded, status_code=201)
-    def create(body: HouseholdIn) -> dict:
-        if store.load(body.id):
-            raise HTTPException(409, "household exists")
-        h = Household(id=body.id, doorbell=body.doorbell, chime=body.chime, sensor=body.sensor,
-                      timezone=body.timezone,
-                      trusted=[Trusted(t.name, t.email) for t in body.trusted])
-        with lock:
-            store.save(h)
-        return {"id": h.id, "mode": h.mode, "enabled": h.enabled}
+    def alerts_of(h: Household) -> list[dict]:
+        return [{"id": s["id"], "reason": s["reason"], "at": local(h, s["at"]),
+                 "detail": s["detail"], "confidence": s.get("confidence"),
+                 "image": bool(s.get("image"))}
+                for s in reversed(store.sent(h.id)) if s["kind"] == "alert"][:30]
 
-    @app.post("/api/households/{household_id}/on", dependencies=guarded)
-    def switch_on(household_id: str) -> dict:
+    def status(h: Household, now: datetime) -> dict:
+        return {"resident": h.resident, "timezone": h.timezone, "mode": h.mode,
+                "enabled": h.enabled,
+                "paused_until": local(h, h.paused_until) if h.paused(now) else None,
+                "heightened_until": local(h, h.heightened_until) if h.heightened(now) else None,
+                "doorbell_online": h.doorbell_online, "alerts": alerts_of(h)}
+
+    # ------------------------------------------------------------------ the resident
+
+    @app.get("/api/resident")
+    def resident_view(household_id: str = Depends(resident)) -> dict:
+        h, now = load(household_id), clock()
+        return status(h, now) | {
+            "trusted": [asdict(t) for t in h.trusted],
+            "visits": [asdict(v) | {"index": i} for i, v in enumerate(h.visits)],
+            "deliveries": [asdict(d) | {"index": i, "start": local(h, d.start),
+                                        "end": local(h, d.end)}
+                           for i, d in enumerate(h.deliveries)
+                           if datetime.fromisoformat(d.end) > now],
+        }
+
+    @app.post("/api/resident/on")
+    def on(household_id: str = Depends(resident)) -> dict:
         return change(household_id, rules.switch_on)
 
-    @app.post("/api/households/{household_id}/off", dependencies=guarded)
-    def switch_off(household_id: str) -> dict:
+    @app.post("/api/resident/off")
+    def off(household_id: str = Depends(resident)) -> dict:
         return change(household_id, rules.switch_off)
 
-    @app.post("/api/households/{household_id}/pause", dependencies=guarded)
-    def pause(household_id: str, body: PauseIn) -> dict:
+    @app.post("/api/resident/pause")
+    def pause(body: PauseIn, household_id: str = Depends(resident)) -> dict:
         return change(household_id,
                       lambda h, now: rules.pause(h, now + timedelta(hours=body.hours), now))
 
-    @app.post("/api/households/{household_id}/resume", dependencies=guarded)
-    def resume(household_id: str) -> dict:
+    @app.post("/api/resident/resume")
+    def resume(household_id: str = Depends(resident)) -> dict:
         return change(household_id, rules.resume)
 
-    @app.post("/api/households/{household_id}/visits", dependencies=guarded)
-    def add_visit(household_id: str, body: VisitIn) -> dict:
+    @app.post("/api/resident/visits")
+    def add_visit(body: VisitIn, household_id: str = Depends(resident)) -> dict:
         if body.end <= body.start or any(not 0 <= d <= 6 for d in body.weekdays):
             raise HTTPException(422, "invalid window")
         visit = ExpectedVisit(body.label, sorted(set(body.weekdays)), body.start, body.end)
         return change(household_id, lambda h, now: rules.add_visit(h, visit, now))
 
-    @app.post("/api/deliveries/read", dependencies=guarded)
-    def read_notice(body: NoticeIn) -> dict:
-        return asdict(deliveries.read(body.text))
+    @app.delete("/api/resident/visits/{index}")
+    def remove_visit(index: int, household_id: str = Depends(resident)) -> dict:
+        # Removing an expected visit only makes the door stricter: no alert.
+        def apply(h, now):
+            if not 0 <= index < len(h.visits):
+                raise HTTPException(404, "no such visit")
+            return [rules.Note(f"visit removed: {h.visits.pop(index).label}")]
+        return change(household_id, apply)
 
-    @app.post("/api/households/{household_id}/deliveries", dependencies=guarded)
-    def add_delivery(household_id: str, body: DeliveryIn) -> dict:
-        proposal = deliveries.Proposal(body.carrier, body.tracking, body.start, body.end,
+    @app.post("/api/resident/deliveries/read")
+    def read_delivery(body: NoticeIn, household_id: str = Depends(resident)) -> dict:
+        h = load(household_id)
+        proposal = read_notice(body.text, clock(), h.timezone)
+        fields = asdict(proposal)
+        for key in ("start", "end"):
+            fields[key] = h.local(fields[key]).isoformat() if fields[key] else None
+        return fields
+
+    @app.post("/api/resident/deliveries")
+    def add_delivery(body: DeliveryIn, household_id: str = Depends(resident)) -> dict:
+        h = load(household_id)
+        zone = h.local(clock()).tzinfo
+        start, end = (d if d.tzinfo else d.replace(tzinfo=zone) for d in (body.start, body.end))
+        proposal = deliveries.Proposal(body.carrier, body.tracking, start, end,
                                        body.signature_required)
         verdict = deliveries.validate(body.text, proposal, clock())
         if not verdict.accepted:
-            store.note(household_id, iso(clock()), "delivery refused: " + "; ".join(verdict.refusals))
+            store.note(household_id, iso(clock()),
+                       "delivery refused: " + "; ".join(verdict.refusals))
             raise HTTPException(422, {"refusals": list(verdict.refusals)})
-        return change(household_id,
-                      lambda h, now: rules.add_delivery(h, verdict.delivery, now))
+        return change(household_id, lambda h, now: rules.add_delivery(h, verdict.delivery, now))
 
-    @app.delete("/api/households/{household_id}/trusted/{email}", dependencies=guarded)
-    def remove_trusted(household_id: str, email: str) -> dict:
-        return change(household_id, lambda h, now: rules.remove_trusted(h, email, now))
+    @app.post("/api/resident/trusted")
+    def add_trusted(body: TrustedIn, household_id: str = Depends(resident)) -> dict:
+        person = Trusted(body.name, body.email.lower())
 
-    @app.get("/api/households/{household_id}", dependencies=guarded)
-    def show(household_id: str) -> dict:
-        h = household(household_id)
-        now = clock()
-        return {"id": h.id, "mode": h.mode, "enabled": h.enabled,
-                "paused": h.paused(now), "heightened": h.heightened(now),
-                "doorbell_online": h.doorbell_online,
-                "sent": [{k: v for k, v in s.items() if k != "image"} | {"image": bool(s.get("image"))}
-                         for s in store.sent(h.id)],
-                "journal": store.journal(h.id)}
+        def apply(h, now):
+            if any(t.email == person.email for t in h.trusted) or len(h.trusted) >= 3:
+                raise HTTPException(409, "already trusted, or three people already")
+            return rules.add_trusted(h, person, now)
+        told = change(household_id, apply)
+        invite(load(household_id), person, store.grant(household_id, "family", person.email))
+        return told
 
-    @app.delete("/api/households/{household_id}", dependencies=guarded, status_code=204)
-    def delete(household_id: str) -> Response:
+    @app.delete("/api/resident/trusted/{email}")
+    def remove_trusted(email: str, household_id: str = Depends(resident)) -> dict:
+        told = change(household_id, lambda h, now: rules.remove_trusted(h, email.lower(), now))
+        store.revoke(household_id, email.lower())
+        return told
+
+    @app.delete("/api/resident")
+    def delete_everything(household_id: str = Depends(resident)) -> Response:
+        change(household_id, rules.farewell)
         with lock:
             store.delete(household_id)
-        return Response(status_code=204)
+        response = Response(status_code=204)
+        response.delete_cookie(COOKIE)
+        return response
+
+    # ------------------------------------------------------------------ trusted people
+
+    @app.get("/api/family")
+    def family_view(who: tuple[str, str] = Depends(family)) -> dict:
+        h = load(who[0])
+        return status(h, clock()) | {"you": who[1]}
+
+    @app.delete("/api/family/me")
+    def stop_receiving(who: tuple[str, str] = Depends(family)) -> Response:
+        household_id, email = who
+        change(household_id, lambda h, now: rules.remove_trusted(h, email, now))
+        store.revoke(household_id, email)
+        response = Response(status_code=204)
+        response.delete_cookie(COOKIE)
+        return response
+
+    # ------------------------------------------------------------------ evidence
+
+    def sent_or_404(household_id: str, sent_id: int) -> dict:
+        found = store.one_sent(household_id, sent_id)
+        if not found or found["kind"] != "alert":
+            raise HTTPException(404, "not found")
+        return found
+
+    @app.get("/api/alerts/{sent_id}/image")
+    def alert_image(sent_id: int, who=Depends(session)) -> Response:
+        found = sent_or_404(who[0], sent_id)
+        if not found.get("image"):
+            raise HTTPException(404, "no image")
+        image = base64.b64decode(found["image"])
+        return Response(image, media_type=f"image/{notify.image_type(image)}")
+
+    @app.get("/family/report/{sent_id}", response_class=HTMLResponse)
+    def report(sent_id: int, who=Depends(session)) -> str:
+        h = load(who[0])
+        return report_sheet(h, sent_or_404(h.id, sent_id))
+
+    # ------------------------------------------------------------------ operator
+
+    def admin(x_admin_token: str = Header(default="")) -> None:
+        if not admin_token or not hmac.compare_digest(x_admin_token.encode(),
+                                                      admin_token.encode()):
+            raise HTTPException(401, "admin token required")
+
+    @app.post("/api/households", dependencies=[Depends(admin)], status_code=201)
+    def create(body: HouseholdIn) -> dict:
+        """Returns the resident's link. Protection starts off: the resident
+        switches it on, from that link."""
+        if store.load(body.id):
+            raise HTTPException(409, "household exists")
+        h = Household(id=body.id, resident=body.resident, doorbell=body.doorbell,
+                      chime=body.chime, sensor=body.sensor, timezone=body.timezone,
+                      trusted=[Trusted(t.name, t.email.lower()) for t in body.trusted])
+        with lock:
+            store.save(h)
+        for person in h.trusted:
+            invite(h, person, store.grant(h.id, "family", person.email))
+        return {"id": h.id, "mode": h.mode, "enabled": h.enabled,
+                "resident_link": f"{base_url}/r/{store.grant(h.id, 'resident')}"}
+
+    # ------------------------------------------------------------------ pages
+
+    @app.get("/")
+    def home() -> FileResponse:
+        return FileResponse(STATIC / "index.html")
+
+    for page in ("resident", "family", "privacy"):
+        app.add_api_route(f"/{page}", (lambda p=page: FileResponse(STATIC / f"{p}.html")),
+                          methods=["GET"])
+
+    @app.get("/static/{name}")
+    def static(name: str) -> FileResponse:
+        path = (STATIC / name).resolve()
+        if path.parent != STATIC.resolve() or not path.is_file():
+            raise HTTPException(404, "not found")
+        return FileResponse(path)
+
+    @app.get("/favicon.ico")
+    def favicon() -> RedirectResponse:
+        return RedirectResponse("/static/favicon.svg", status_code=301)
 
     @app.get("/health")
     def health() -> dict:
@@ -240,14 +442,62 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
     return app
 
 
+def report_sheet(h: Household, alert: dict) -> str:
+    """A printable page with what the door recorded, for IC3 and the FTC. The
+    family files it; Call First never sends it anywhere."""
+    e = html.escape
+    at = h.local(datetime.fromisoformat(alert["at"]))
+    started = h.local(datetime.fromisoformat(alert["snapshot_at"])) \
+        if alert.get("snapshot_at") else None
+    image = (f'<img src="/api/alerts/{alert["id"]}/image" alt="Still image from the doorbell">'
+             if alert.get("image") else "<p>No image was available.</p>")
+    confidence = notify.CONFIDENCE.get(alert.get("confidence") or "", "Not applicable.")
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Report sheet</title><link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/style.css"></head>
+<body class="sheet"><main>
+<h1>Doorstep incident report</h1>
+<p class="lede">Prepared by Call First from what the front door recorded. Nothing here has
+been sent to anyone.</p>
+<table>
+<tr><th>Resident</th><td>{e(h.resident)}</td></tr>
+<tr><th>Date</th><td>{at:%A %d %B %Y}</td></tr>
+<tr><th>Visitor first seen</th><td>{f"{started:%H:%M:%S}" if started else "-"}</td></tr>
+<tr><th>Alert sent</th><td>{at:%H:%M:%S} ({e(h.timezone)})</td></tr>
+<tr><th>What happened</th><td>{e(alert["detail"])}</td></tr>
+<tr><th>How sure</th><td>{e(confidence)}</td></tr>
+</table>
+<figure>{image}</figure>
+<h2>Where to report it</h2>
+<ul>
+<li><strong>FBI Internet Crime Complaint Center</strong>: <a href="https://www.ic3.gov">ic3.gov</a>.
+Courier and "government impersonation" scams belong here.</li>
+<li><strong>Federal Trade Commission</strong>:
+<a href="https://reportfraud.ftc.gov">reportfraud.ftc.gov</a>.</li>
+<li><strong>Local police</strong>, if money or valuables were handed over, or if the courier
+is expected to come back.</li>
+<li><strong>The bank</strong>, at once, if a withdrawal was made.</li>
+</ul>
+<p class="hint">Write down anything the caller said: names, badge numbers, phone numbers,
+the "code" given for the courier.</p>
+<p class="noprint"><a href="/family">Back</a></p>
+</main></body></html>"""
+
+
 def _from_env() -> FastAPI:
     data = Path(os.environ.get("CALLFIRST_DATA", "data"))
-    data.mkdir(exist_ok=True)
+    data.mkdir(parents=True, exist_ok=True)
     store = Store(data / "callfirst.db", os.environ["CALLFIRST_KEY"])
     ring = Ring(os.environ.get("RING_API_BASE", "http://127.0.0.1:8787"),
                 os.environ.get("RING_TOKEN", "sandbox"))
+    base_url = os.environ.get("CALLFIRST_BASE_URL", "http://127.0.0.1:8100")
     return create_app(store, ring, os.environ["RING_WEBHOOK_KEY"],
-                      os.environ.get("CALLFIRST_ADMIN_TOKEN", ""))
+                      os.environ.get("CALLFIRST_ADMIN_TOKEN", ""),
+                      mailer=notify.from_env(data), base_url=base_url,
+                      sender=os.environ.get("CALLFIRST_SENDER",
+                                            "Call First <alerts@callfirst.invalid>"),
+                      secure_cookies=base_url.startswith("https://"))
 
 
 def __getattr__(name: str):

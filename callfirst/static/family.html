@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Call First — family</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/common.js" defer></script>
+<script src="/static/family.js" defer></script>
+</head>
+<body>
+<nav><img src="/static/favicon.svg" alt=""> Call First <span class="who" id="who"></span></nav>
+<main>
+  <div id="status" class="status off" aria-live="polite"><h1>Loading…</h1></div>
+  <h2>Alerts</h2>
+  <div id="alerts"></div>
+  <h2>You</h2>
+  <section class="card">
+    <p class="small" id="you"></p>
+    <div class="row"><button class="danger" id="stop">Stop receiving alerts</button></div>
+  </section>
+</main>
+</body>
+</html>

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from .household import (DWELL, HEIGHTENED, MAX_PAUSE, VISIT_GAP, Delivery, ExpectedVisit,
-                        Household, Visit, iso, today_or_tomorrow)
+                        Household, Trusted, Visit, iso, today_or_tomorrow)
 from .webhooks import Event
 
 REMINDER = "ring-appstore-event-1"             # "call your family first..."
@@ -244,6 +244,19 @@ def add_delivery(h: Household, delivery: Delivery, now: datetime) -> list:
                                 f"{h.local(start).strftime('%A %H:%M')}. Visitors in that window "
                                 "will not trigger the reminder.")]
     return [Note(f"delivery added: {delivery.carrier}")]
+
+
+def add_trusted(h: Household, person: Trusted, now: datetime) -> list:
+    # "Add my colleague's email, he will help you" is a script too. The people
+    # already trusted hear about the newcomer before the newcomer hears anything.
+    alert = _change(h, now, f"{person.name} ({person.email}) was added as a trusted person.")
+    h.trusted.append(person)
+    return [alert] if alert.recipients else []
+
+
+def farewell(h: Household, now: datetime) -> list:
+    """Deleting everything also switches protection off, so it is told first."""
+    return [_change(h, now, "Call First was removed and everything it held was deleted.")]
 
 
 def remove_trusted(h: Household, email: str, now: datetime) -> list:

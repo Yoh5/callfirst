@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Call First — your door</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/common.js" defer></script>
+<script src="/static/resident.js" defer></script>
+</head>
+<body class="large">
+<nav><img src="/static/favicon.svg" alt=""> Call First <span class="who" id="who"></span></nav>
+<main>
+  <div id="status" class="status off" aria-live="polite"><h1>Loading…</h1></div>
+
+  <h2>Who is told</h2>
+  <section class="card">
+    <p class="small">These people are told when the door is opened for someone you were not
+      expecting, and whenever anything on this page changes.</p>
+    <ul class="list" id="trusted"></ul>
+    <form id="add-trusted">
+      <div class="grid2">
+        <div><label for="t-name">Name</label><input id="t-name" required maxlength="80"></div>
+        <div><label for="t-email">Email</label><input id="t-email" type="email" required></div>
+      </div>
+      <div class="row"><button>Add this person</button></div>
+    </form>
+  </section>
+
+  <h2>People you expect</h2>
+  <section class="card">
+    <p class="small">A carer, a cleaner: someone who comes at the same times every week. When
+      they ring inside their window, nothing plays and nobody is told.</p>
+    <ul class="list" id="visits"></ul>
+    <form id="add-visit">
+      <label for="v-label">Who</label><input id="v-label" required maxlength="60" placeholder="Carer">
+      <label>Which days</label>
+      <div class="days" id="v-days"></div>
+      <div class="grid2">
+        <div><label for="v-start">From</label><input id="v-start" type="time" required value="10:00"></div>
+        <div><label for="v-end">Until</label><input id="v-end" type="time" required value="12:00"></div>
+      </div>
+      <div class="row"><button>Add this visit</button></div>
+    </form>
+  </section>
+
+  <h2>Deliveries you expect</h2>
+  <section class="card">
+    <p class="small">Paste the message the carrier sent you. Call First reads it; you check it.
+      A message about someone coming to <strong>collect</strong> anything is never accepted:
+      no real carrier or agency collects money or valuables from a home.</p>
+    <ul class="list" id="deliveries"></ul>
+    <form id="read-delivery">
+      <label for="d-text">The carrier's message</label>
+      <textarea id="d-text" required maxlength="4000"></textarea>
+      <div class="row"><button>Read it</button></div>
+    </form>
+    <form id="add-delivery" hidden>
+      <div class="grid2">
+        <div><label for="d-carrier">Carrier</label>
+          <select id="d-carrier"><option value="">—</option><option>UPS</option><option>USPS</option>
+            <option>FedEx</option><option>DHL</option><option>Amazon</option></select></div>
+        <div><label for="d-tracking">Tracking number</label><input id="d-tracking"></div>
+        <div><label for="d-start">Arrives from</label><input id="d-start" type="datetime-local" required></div>
+        <div><label for="d-end">Until</label><input id="d-end" type="datetime-local" required></div>
+      </div>
+      <label><input type="checkbox" id="d-signature"> A signature is needed</label>
+      <div class="row"><button>This is right — add it</button>
+        <button type="button" class="secondary" id="d-cancel">Cancel</button></div>
+    </form>
+    <div id="d-result" aria-live="polite"></div>
+  </section>
+
+  <h2>What happened at the door</h2>
+  <section class="card"><div id="alerts"></div></section>
+
+  <h2>Your data</h2>
+  <section class="card">
+    <p class="small">Deleting removes everything Call First holds about you: people, times,
+      alerts and images. The people you trust are told.
+      <a href="/privacy">Privacy policy</a>.</p>
+    <div class="row"><button class="danger" id="delete">Delete everything</button></div>
+  </section>
+</main>
+</body>
+</html>
