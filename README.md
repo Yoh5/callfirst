@@ -1,3 +1,5 @@
+<p align="center"><img src="submission/cover-wide.png" alt="Call First: courier scams end at the front door. So does this." width="820"></p>
+
 # Call First
 
 **Courier scams end at the front door. So does this.**
@@ -95,7 +97,7 @@ household per hour (OWASP LLM10).
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 103 tests
+.venv/Scripts/python -m pytest              # 104 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```
