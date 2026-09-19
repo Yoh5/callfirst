@@ -6,12 +6,12 @@ that plays the front door.
 It prints Margaret's link and Sarah's link. Open both, then press:
 
     r  someone rings            p  a person is seen at the door
-    o  the door opens           x  the doorbell goes offline
+    o  the door opens           c  the door closes
+    x  the doorbell goes offline
     n  the doorbell comes back  q  quit
 
-Alert emails land in data/demo/mail/ as .eml files. Put a doorstep photo at
-demo/default.jpg to make the still image real; otherwise the emulator's
-placeholder is used.
+Alert emails land in data/demo/mail/ as .eml files. The doorbell's still is
+demo/default.jpg, an illustration drawn by scripts/make_demo_still.py.
 """
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ from live import APP, PYTHON, RING, SANDBOX, ROOT, wait  # noqa: E402
 
 KEYS = {"r": ("button_press", "Front Door", None), "p": ("motion_detected", "Front Door", "human"),
         "o": ("contact_sensor_faulted", "Front Door Sensor", None),
+        "c": ("contact_sensor_cleared", "Front Door Sensor", None),
         "x": ("device_offline", "Front Door", None), "n": ("device_online", "Front Door", None)}
 
 
