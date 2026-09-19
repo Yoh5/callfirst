@@ -4,6 +4,9 @@
 
 **Courier scams end at the front door. So does this.**
 
+**Live demo: [callfirst-bgtj.onrender.com/try](https://callfirst-bgtj.onrender.com/try)**
+(a free instance: the first load after a quiet spell takes about a minute)
+
 A courier scam starts on the phone — a fake grandchild, a fake federal agent —
 and ends when a courier comes to an older person's home to collect cash or
 gold. The FBI counted at least 1,737 of these pickups, about $186 million, from
@@ -109,7 +112,7 @@ command.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 112 tests
+.venv/Scripts/python -m pytest              # 146 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```

@@ -41,6 +41,11 @@ function when(iso) {
                                                 hour: "numeric", minute: "2-digit", timeZone: ZONE});
 }
 
+function hhmm(value) {
+  const [h, m] = value.split(":").map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
+
 function clock(iso) {
   return iso ? new Date(iso).toLocaleString("en-US", {hour: "numeric", minute: "2-digit",
                                                        timeZone: ZONE}) : "";
@@ -70,10 +75,29 @@ const REASONS = {
   change: "A change to the protection",
 };
 
+// A short message at the bottom of the screen, for what just happened.
+let toastTimer = null;
+function toast(text, kind = "ok") {
+  const box = document.getElementById("toast");
+  if (!box) return;
+  box.textContent = text;
+  box.className = `toast ${kind}`;
+  box.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { box.hidden = true; }, kind === "error" ? 8000 : 4000);
+}
+
+// The newest alerts first; older ones behind a button, remembered across refreshes.
+const SHOWN = 3;
+let showAll = false;
+
 function renderAlerts(target, alerts, withReport) {
   target.replaceChildren();
-  if (!alerts.length) { target.append(el("p", {class: "empty"}, "Nothing yet.")); return; }
-  for (const a of alerts) {
+  if (!alerts.length) {
+    target.append(el("p", {class: "empty"}, "Nothing yet. Alerts and changes will show here."));
+    return;
+  }
+  for (const a of showAll ? alerts : alerts.slice(0, SHOWN)) {
     target.append(el("div", {class: `alert ${a.reason}`},
       el("div", {class: "when"}, when(a.at)),
       el("div", {}, REASONS[a.reason] || a.reason,
@@ -81,6 +105,11 @@ function renderAlerts(target, alerts, withReport) {
       a.detail !== `${REASONS[a.reason]}.` ? el("div", {class: "small"}, a.detail) : null,
       a.image ? el("img", {src: `/api/alerts/${a.id}/image`, alt: "The doorbell's still image"}) : null,
       withReport && a.reason !== "change"
-        ? el("div", {}, el("a", {href: `/family/report/${a.id}`}, "Report sheet")) : null));
+        ? el("div", {class: "actions"}, el("a", {href: `/family/report/${a.id}`}, "Open the report sheet")) : null));
+  }
+  if (alerts.length > SHOWN) {
+    target.append(el("button", {class: "linkish", onclick: () => {
+      showAll = !showAll; renderAlerts(target, alerts, withReport);
+    }}, showAll ? "Show fewer" : `Show ${alerts.length - SHOWN} earlier`));
   }
 }

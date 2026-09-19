@@ -40,7 +40,7 @@ Track: **Ring**. Images: `cover.png` (1500×1000, 3:2 thumbnail), `cover-wide.pn
 > refused by code reading the text itself; a model may help read it, never decide.
 >
 > Measured: through an emulator dropping, duplicating and delaying webhooks, 60
-> courier visits, 60 families told, no reminder played twice. 112 tests; 32 rules
+> courier visits, 60 families told, no reminder played twice. 146 tests; 32 rules
 > broken on purpose, each caught. The misses are published: a neighbour let in is
 > a false alert, and without a sensor a handover under a minute is missed.
 >
@@ -139,5 +139,5 @@ javascript, html, css
 
 - GitHub repository (public at submission, MIT)
 - YouTube video (public, under 3 minutes)
-- Try it: `scripts/demo.py` instructions in the README (no hosted version unless we
-  deploy one)
+- Try it: https://callfirst-bgtj.onrender.com/try (each visitor gets a household and a
+  front door to play; free instance, first load after idle takes about a minute)

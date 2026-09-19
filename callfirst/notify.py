@@ -17,6 +17,8 @@ from email.message import EmailMessage
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from .household import clock
+
 SUBJECTS = {
     "answered": "Call First: the door was answered for an unexpected visitor",
     "heightened": "Call First: an unexpected visitor is at the door again",
@@ -46,7 +48,7 @@ def compose(alert: dict, resident: str, timezone: str, sender: str, base_url: st
     at = datetime.fromisoformat(alert["at"]).astimezone(ZoneInfo(timezone))
     reason = alert["reason"]
     lines = [
-        f"{resident}'s front door, {at:%A %d %B, %H:%M}.",
+        f"{resident}'s front door, {at:%A, %B} {at.day}, {clock(at)}.",
         "",
         alert["detail"],
     ]

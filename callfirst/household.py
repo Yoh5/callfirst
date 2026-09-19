@@ -117,6 +117,17 @@ class Household:
         return cls(**raw)
 
 
+def clock(at: datetime, seconds: bool = False) -> str:
+    """US style, as the people reading it write it: 7:04 PM, not 19:04."""
+    hour = at.hour % 12 or 12
+    return f"{hour}:{at:%M}{f':{at:%S}' if seconds else ''} {'AM' if at.hour < 12 else 'PM'}"
+
+
+def hhmm(value: str) -> str:
+    """ "19:30" as 7:30 PM."""
+    return clock(datetime.fromisoformat(f"2000-01-01T{value}"))
+
+
 def iso(at: datetime) -> str:
     return at.astimezone(UTC).isoformat()
 
@@ -128,5 +139,5 @@ def today_or_tomorrow(start: datetime, now: datetime) -> bool:
 
 __all__ = [
     "DWELL", "HEIGHTENED", "MAX_PAUSE", "VISIT_GAP", "Trusted", "ExpectedVisit",
-    "Delivery", "Visit", "Household", "iso", "today_or_tomorrow",
+    "Delivery", "Visit", "Household", "iso", "today_or_tomorrow", "clock", "hhmm",
 ]

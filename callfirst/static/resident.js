@@ -11,11 +11,11 @@ function statusCard(s) {
   if (!s.enabled) {
     kind = "off"; title = "Call First is off";
     text = `Switch it on and ${told} will be told if the door is opened for someone you were not expecting.`;
-    buttons = [el("button", {onclick: () => run("POST", "/api/resident/on")}, "Switch on")];
+    buttons = [el("button", {onclick: () => run("POST", "/api/resident/on", null, "Call First is on.")}, "Switch on")];
   } else if (s.paused_until) {
     kind = "paused"; title = `Paused until ${clock(s.paused_until)}`;
     text = `${told} ${were} told that you paused it.`;
-    buttons = [el("button", {onclick: () => run("POST", "/api/resident/resume")}, "Protect me again now")];
+    buttons = [el("button", {onclick: () => run("POST", "/api/resident/resume", null, "Protection is back on.")}, "Protect me again now")];
   } else {
     kind = s.heightened_until ? "heightened" : "on";
     title = s.heightened_until ? "Heightened watch" : "Your door is protected";
@@ -23,8 +23,8 @@ function statusCard(s) {
       ? `After what happened, ${told} ${are} told as soon as anyone unexpected comes, until ${when(s.heightened_until)}.`
       : "If someone you were not expecting rings, you will hear: “Before you hand anything over, call your family first.”";
     buttons = [
-      el("button", {class: "secondary", onclick: () => run("POST", "/api/resident/pause", {hours: 2})}, "Pause for 2 hours"),
-      el("button", {class: "secondary", onclick: () => run("POST", "/api/resident/off")}, "Switch off"),
+      el("button", {class: "secondary", onclick: () => run("POST", "/api/resident/pause", {hours: 2}, "Paused for 2 hours.")}, "Pause for 2 hours"),
+      el("button", {class: "secondary", onclick: () => run("POST", "/api/resident/off", null, "Call First is off.")}, "Switch off"),
     ];
   }
   if (!s.doorbell_online) { kind = "blind"; text += " The doorbell is offline right now."; }
@@ -85,14 +85,15 @@ function render(s) {
     el("span", {class: "grow"}, el("strong", {}, t.name), " ", el("span", {class: "small"}, t.email)),
     s.trusted.length > 1
       ? el("button", {class: "secondary",
-                      onclick: () => run("DELETE", `/api/resident/trusted/${encodeURIComponent(t.email)}`)}, "Remove")
+                      onclick: () => run("DELETE", `/api/resident/trusted/${encodeURIComponent(t.email)}`, null,
+                                          `${t.name} will no longer be told.`)}, "Remove")
       : null)));
-  $("add-trusted").hidden = s.trusted.length >= 3;
+  $("trusted-box").hidden = s.trusted.length >= 3;
 
   $("visits").replaceChildren(...(s.visits.length ? s.visits.map((v) => el("li", {},
     el("span", {class: "grow"}, el("strong", {}, v.label), " — ",
-       v.weekdays.map((d) => DAYS[d]).join(", "), `, ${v.start}–${v.end}`),
-    el("button", {class: "secondary", onclick: () => run("DELETE", `/api/resident/visits/${v.index}`)}, "Remove")))
+       v.weekdays.map((d) => DAYS[d]).join(", "), `, ${hhmm(v.start)} to ${hhmm(v.end)}`),
+    el("button", {class: "secondary", onclick: () => run("DELETE", `/api/resident/visits/${v.index}`, null, `${v.label} was removed.`)}, "Remove")))
     : [el("li", {class: "empty"}, "None.")]));
 
   $("deliveries").replaceChildren(...(s.deliveries.length ? s.deliveries.map((d) => el("li", {},
@@ -109,14 +110,18 @@ function render(s) {
 
 async function refresh() { render(await api("GET", "/api/resident")); }
 
-async function run(method, path, body) {
-  try { await api(method, path, body); }
-  catch (e) { if (e.data?.detail) message(String(e.data.detail)); }
-  await refresh();
-}
-
-function message(text) {
-  $("d-result").replaceChildren(el("p", {class: "refusals"}, text));
+async function run(method, path, body, done) {
+  try {
+    const r = await api(method, path, body);
+    const told = (r?.told || []).flat();
+    if (done) toast(told.length ? `${done} ${told.length > 1 ? "They were" : "Your family was"} told.` : done);
+    return true;
+  } catch (e) {
+    toast(typeof e.data?.detail === "string" ? e.data.detail : "That did not work. Please try again.", "error");
+    return false;
+  } finally {
+    await refresh();
+  }
 }
 
 function localInput(iso) { return iso ? iso.slice(0, 16) : ""; }
@@ -127,17 +132,23 @@ function setup() {
 
   $("add-trusted").addEventListener("submit", async (e) => {
     e.preventDefault();
-    await run("POST", "/api/resident/trusted", {name: $("t-name").value, email: $("t-email").value});
-    e.target.reset();
+    const name = $("t-name").value;
+    if (await run("POST", "/api/resident/trusted", {name, email: $("t-email").value},
+                  `${name} was added and sent a personal link.`)) {
+      e.target.reset(); $("trusted-box").open = false;
+    }
   });
 
   $("add-visit").addEventListener("submit", async (e) => {
     e.preventDefault();
     const weekdays = [...$("v-days").querySelectorAll("input:checked")].map((i) => Number(i.value));
-    if (!weekdays.length) return;
-    await run("POST", "/api/resident/visits",
-              {label: $("v-label").value, weekdays, start: $("v-start").value, end: $("v-end").value});
-    $("v-label").value = "";
+    if (!weekdays.length) { toast("Choose at least one day.", "error"); return; }
+    if (await run("POST", "/api/resident/visits",
+                  {label: $("v-label").value, weekdays, start: $("v-start").value, end: $("v-end").value},
+                  "The visit was added.")) {
+      $("v-label").value = ""; $("visit-box").open = false;
+      $("v-days").querySelectorAll("input").forEach((i) => { i.checked = false; });
+    }
   });
 
   $("read-delivery").addEventListener("submit", async (e) => {
@@ -161,9 +172,9 @@ function setup() {
         text: $("d-text").value, carrier: $("d-carrier").value || null,
         tracking: $("d-tracking").value || null, start: $("d-start").value, end: $("d-end").value,
         signature_required: $("d-signature").checked});
-      $("d-result").replaceChildren(el("p", {class: "okmsg"},
-        "Added. That delivery will not set off the reminder."));
-      $("add-delivery").hidden = true; $("d-text").value = "";
+      toast("Delivery added: that visitor will not set off the reminder.");
+      $("d-result").replaceChildren();
+      $("add-delivery").hidden = true; $("d-text").value = ""; $("delivery-box").open = false;
     } catch (err) {
       const reasons = err.data?.detail?.refusals || ["That could not be added."];
       $("d-result").replaceChildren(el("div", {class: "refusals"},

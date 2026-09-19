@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from .household import (DWELL, HEIGHTENED, MAX_PAUSE, VISIT_GAP, Delivery, ExpectedVisit,
-                        Household, Trusted, Visit, iso, today_or_tomorrow)
+                        Household, Trusted, Visit, clock, hhmm, iso, today_or_tomorrow)
 from .webhooks import Event
 
 REMINDER = "ring-appstore-event-1"             # "call your family first..."
@@ -198,7 +198,7 @@ def switch_off(h: Household, now: datetime) -> list:
 def pause(h: Household, until: datetime, now: datetime) -> list:
     until = min(until, now + MAX_PAUSE)
     h.paused_until = iso(until)
-    local = h.local(until).strftime("%A %H:%M")
+    local = f"{h.local(until):%A} {clock(h.local(until))}"
     return [_change(h, now, f"Protection was paused until {local}. If this was not planned, "
                             "call now.")]
 
@@ -231,7 +231,8 @@ def add_visit(h: Household, visit: ExpectedVisit, now: datetime) -> list:
     start = next_start(visit, h, now)
     if start and today_or_tomorrow(start, now):
         return [_change(h, now, f"A visit was added: {visit.label}, "
-                                f"{h.local(start).strftime('%A %H:%M')}-{visit.end}. Visitors in "
+                                f"{h.local(start):%A} {clock(h.local(start))} to "
+                                f"{hhmm(visit.end)}. Visitors in "
                                 "that window will not trigger the reminder.")]
     return [Note(f"visit added: {visit.label}")]
 
@@ -241,7 +242,7 @@ def add_delivery(h: Household, delivery: Delivery, now: datetime) -> list:
     start = datetime.fromisoformat(delivery.start)
     if today_or_tomorrow(start, now):
         return [_change(h, now, f"A {delivery.carrier} delivery was declared for "
-                                f"{h.local(start).strftime('%A %H:%M')}. Visitors in that window "
+                                f"{h.local(start):%A} {clock(h.local(start))}. Visitors in that window "
                                 "will not trigger the reminder.")]
     return [Note(f"delivery added: {delivery.carrier}")]
 

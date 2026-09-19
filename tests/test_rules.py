@@ -225,3 +225,16 @@ def test_nothing_happens_until_the_resident_switches_it_on(home):
     home.enabled = False
     actions = play(home, ring(T0), door(T0 + seconds(20)))
     assert chimes(actions) == [] and alerts(actions) == []
+
+
+def test_times_read_the_american_way():
+    from datetime import datetime
+    from callfirst.household import clock, hhmm
+    assert [clock(datetime(2026, 9, 19, h, 4)) for h in (0, 9, 12, 19)] == \
+        ["12:04 AM", "9:04 AM", "12:04 PM", "7:04 PM"]
+    assert hhmm("00:00") == "12:00 AM" and hhmm("13:30") == "1:30 PM"
+
+
+def test_a_pause_message_says_when_it_ends_in_local_time(home):
+    [told] = rules.pause(home, T0 + timedelta(hours=4), T0)   # 19:00 New York
+    assert "Tuesday 7:00 PM" in told.detail

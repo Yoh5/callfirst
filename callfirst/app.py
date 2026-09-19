@@ -38,7 +38,7 @@ from cryptography.fernet import Fernet
 from pydantic import BaseModel, Field
 
 from . import deliveries, demo, notify, reader, rules, webhooks
-from .household import ExpectedVisit, Household, Trusted, iso
+from .household import ExpectedVisit, Household, Trusted, clock, iso
 from .ring import Ring
 from .store import Store
 
@@ -607,8 +607,8 @@ been sent to anyone.</p>
 <table>
 <tr><th>Resident</th><td>{e(h.resident)}</td></tr>
 <tr><th>Date</th><td>{at:%A %d %B %Y}</td></tr>
-<tr><th>Visitor first seen</th><td>{f"{started:%H:%M:%S}" if started else "-"}</td></tr>
-<tr><th>Alert sent</th><td>{at:%H:%M:%S} ({e(h.timezone)})</td></tr>
+<tr><th>Visitor first seen</th><td>{clock(started, seconds=True) if started else "-"}</td></tr>
+<tr><th>Alert sent</th><td>{clock(at, seconds=True)} ({e(h.timezone)})</td></tr>
 <tr><th>What happened</th><td>{e(alert["detail"])}</td></tr>
 <tr><th>How sure</th><td>{e(confidence)}</td></tr>
 </table>
