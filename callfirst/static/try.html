@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Call First — try it</title>
+<link rel="icon" href="/static/favicon.svg">
+<link rel="preload" href="/static/fonts/atkinson-hyperlegible-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/common.js" defer></script>
+<script src="/static/try.js" defer></script>
+</head>
+<body>
+<nav>
+  <a class="brand" href="/"><img src="/static/logo-mark.svg" alt=""> Call First</a>
+  <span class="links"><a href="/">About</a><a href="/privacy">Privacy</a></span>
+</nav>
+<main>
+  <span class="eyebrow">Live demo</span>
+  <h1>Be Margaret's front door for a few minutes.</h1>
+  <p class="lede">You get your own household: Margaret, a doorbell, a chime, a sensor on the
+    front door, and Sarah, who is told. There is no real doorbell, so the door is played
+    from buttons. Everything behind them is real: each press goes to a Ring Partner API
+    emulator, which sends a signed webhook to Call First, which decides exactly as it would
+    for a real home.</p>
+
+  <section class="card">
+    <ol class="steps">
+      <li><strong>Someone rings.</strong> Nobody was expected: your speakers play the chime's
+        reminder.</li>
+      <li><strong>Open the door.</strong> Sarah's page shows the alert, with the doorbell's
+        still image and a report sheet.</li>
+      <li><strong>Pause the protection</strong>, or paste a fake delivery message asking to
+        "collect gold for safekeeping". See what Sarah is told, and what is refused.</li>
+    </ol>
+    <div class="row"><button id="start">Start the demo</button></div>
+    <p class="small" id="note">Your demo household is deleted after two hours. Nothing you type
+      is sent anywhere; emails are written to the server, not delivered.</p>
+  </section>
+</main>
+</body>
+</html>

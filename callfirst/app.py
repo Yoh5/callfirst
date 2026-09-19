@@ -19,10 +19,13 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import hmac
 import html
 import os
+import secrets
 import threading
+import time
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
@@ -31,16 +34,19 @@ from typing import Callable
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from cryptography.fernet import Fernet
 from pydantic import BaseModel, Field
 
-from . import deliveries, notify, reader, rules, webhooks
+from . import deliveries, demo, notify, reader, rules, webhooks
 from .household import ExpectedVisit, Household, Trusted, iso
 from .ring import Ring
 from .store import Store
 
 TICK_SECONDS = float(os.environ.get("CALLFIRST_TICK", "5"))
 READS_PER_HOUR = 20          # pasted notices read by a model, per household (OWASP LLM10)
-COOKIE = "callfirst"
+# One cookie per role, so a resident and a trusted person can use the same
+# browser (and the demo can show both views side by side).
+COOKIES = {"resident": "callfirst_resident", "family": "callfirst_family"}
 STATIC = Path(__file__).parent / "static"
 HEADERS = {
     "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; "
@@ -85,6 +91,10 @@ class DeliveryIn(NoticeIn):
     signature_required: bool = False
 
 
+class DoorIn(BaseModel):
+    action: str = Field(pattern="^(" + "|".join(demo.DOOR) + ")$")
+
+
 class PauseIn(BaseModel):
     hours: float = Field(gt=0, le=24)
 
@@ -97,9 +107,11 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
                clock: Callable[[], datetime] = _now, background: bool = True,
                mailer=None, base_url: str = "http://127.0.0.1:8100",
                sender: str = "Call First <alerts@callfirst.invalid>",
-               read_notice: Callable = reader.read, secure_cookies: bool = False) -> FastAPI:
+               read_notice: Callable = reader.read, secure_cookies: bool = False,
+               emulator: "demo.Emulator | None" = None, self_url: str = "") -> FastAPI:
     lock = threading.Lock()    # one household decision at a time: load, decide, save
     reads: dict[str, list[datetime]] = {}
+    starts: dict[str, list[datetime]] = {}
 
     # ------------------------------------------------------------------ doing what was decided
 
@@ -137,6 +149,8 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         there (a lost webhook must not mean a silent door), then close visits
         nobody is at any more."""
         now = clock()
+        if emulator:
+            expire_demos(now)
         for household_id in store.all_ids():
             h = store.load(household_id)
             if not h or not h.visit:
@@ -160,8 +174,19 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
                 store.save(h)
             act(h, actions, iso(now))
 
+    def connect_emulator() -> None:
+        """The emulator starts alongside; tell it where to send webhooks."""
+        for _ in range(120):
+            if emulator.healthy():
+                emulator.register(f"{self_url}/webhooks/ring", webhook_key)
+                return
+            time.sleep(0.5)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        if emulator:
+            await asyncio.to_thread(connect_emulator)
+
         async def loop():
             while True:
                 await asyncio.sleep(TICK_SECONDS)
@@ -210,23 +235,37 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
 
     # ------------------------------------------------------------------ sessions
 
-    def session(request: Request) -> tuple[str, str, str | None]:
-        token = request.cookies.get(COOKIE)
-        found = store.resolve(token) if token else None
-        if not found:
-            raise HTTPException(401, "open the link you were sent")
+    def sessions(request: Request) -> list[tuple[str, str, str | None]]:
+        """Every valid session this browser holds, each checked against its role."""
+        found = []
+        for role, name in COOKIES.items():
+            token = request.cookies.get(name)
+            who = store.resolve(token) if token else None
+            if who and who[1] == role:
+                found.append(who)
         return found
 
-    def resident(who=Depends(session)) -> str:
-        household_id, role, _ = who
-        if role != "resident":
-            raise HTTPException(403, "only the resident can change this")
-        return household_id
+    def as_role(request: Request, role: str) -> tuple[str, str, str | None]:
+        held = sessions(request)
+        for who in held:
+            if who[1] == role:
+                return who
+        if held:
+            raise HTTPException(403, "only the resident can change this" if role == "resident"
+                                else "this page is for trusted people")
+        raise HTTPException(401, "open the link you were sent")
 
-    def family(who=Depends(session)) -> tuple[str, str]:
-        household_id, role, email = who
-        if role != "family":
-            raise HTTPException(403, "this page is for trusted people")
+    def any_session(request: Request) -> list[tuple[str, str, str | None]]:
+        held = sessions(request)
+        if not held:
+            raise HTTPException(401, "open the link you were sent")
+        return held
+
+    def resident(request: Request) -> str:
+        return as_role(request, "resident")[0]
+
+    def family(request: Request) -> tuple[str, str]:
+        household_id, _, email = as_role(request, "family")
         return household_id, email
 
     def enter(token: str, role: str, page: str) -> Response:
@@ -234,7 +273,7 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         if not found or found[1] != role:
             return HTMLResponse("<p>This link is not valid any more.</p>", status_code=404)
         response = RedirectResponse(page, status_code=303)
-        response.set_cookie(COOKIE, token, httponly=True, samesite="strict",
+        response.set_cookie(COOKIES[role], token, httponly=True, samesite="strict",
                             secure=secure_cookies, max_age=180 * 86400)
         return response
 
@@ -284,7 +323,11 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
     @app.get("/api/resident")
     def resident_view(household_id: str = Depends(resident)) -> dict:
         h, now = load(household_id), clock()
+        reminders = [at for at, text in store.journal(h.id)
+                     if text.startswith("chime") and text.endswith("played")]
         return status(h, now) | {
+            "demo": bool(emulator) and h.id.startswith("demo-"),
+            "reminders": [local(h, at) for at in reminders[-5:]][::-1],
             "trusted": [asdict(t) for t in h.trusted],
             "visits": [asdict(v) | {"index": i} for i, v in enumerate(h.visits)],
             "deliveries": [asdict(d) | {"index": i, "start": local(h, d.start),
@@ -377,7 +420,7 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         with lock:
             store.delete(household_id)
         response = Response(status_code=204)
-        response.delete_cookie(COOKIE)
+        response.delete_cookie(COOKIES["resident"])
         return response
 
     # ------------------------------------------------------------------ trusted people
@@ -393,29 +436,103 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         change(household_id, lambda h, now: rules.remove_trusted(h, email, now))
         store.revoke(household_id, email)
         response = Response(status_code=204)
-        response.delete_cookie(COOKIE)
+        response.delete_cookie(COOKIES["family"])
         return response
 
     # ------------------------------------------------------------------ evidence
 
-    def sent_or_404(household_id: str, sent_id: int) -> dict:
-        found = store.one_sent(household_id, sent_id)
-        if not found or found["kind"] != "alert":
-            raise HTTPException(404, "not found")
-        return found
+    def sent_or_404(held: list, sent_id: int) -> tuple[str, dict]:
+        for household_id, _, _ in held:
+            found = store.one_sent(household_id, sent_id)
+            if found and found["kind"] == "alert":
+                return household_id, found
+        raise HTTPException(404, "not found")
 
     @app.get("/api/alerts/{sent_id}/image")
-    def alert_image(sent_id: int, who=Depends(session)) -> Response:
-        found = sent_or_404(who[0], sent_id)
+    def alert_image(sent_id: int, held=Depends(any_session)) -> Response:
+        _, found = sent_or_404(held, sent_id)
         if not found.get("image"):
             raise HTTPException(404, "no image")
         image = base64.b64decode(found["image"])
         return Response(image, media_type=f"image/{notify.image_type(image)}")
 
     @app.get("/family/report/{sent_id}", response_class=HTMLResponse)
-    def report(sent_id: int, who=Depends(session)) -> str:
-        h = load(who[0])
-        return report_sheet(h, sent_or_404(h.id, sent_id))
+    def report(sent_id: int, held=Depends(any_session)) -> str:
+        household_id, found = sent_or_404(held, sent_id)
+        return report_sheet(load(household_id), found)
+
+    # ------------------------------------------------------------------ the hosted demo
+
+    def demo_started(household_id: str) -> datetime | None:
+        try:
+            return datetime.fromtimestamp(int(household_id.split("-")[1]) * 60, tz=UTC)
+        except (IndexError, ValueError):
+            return None
+
+    def expire_demos(now: datetime) -> None:
+        for household_id in store.all_ids():
+            started = demo_started(household_id) if household_id.startswith("demo-") else None
+            if started and now - started > demo.DEMO_LIFETIME:
+                with lock:
+                    store.delete(household_id)
+
+    @app.get("/try")
+    def try_page() -> Response:
+        if not emulator:
+            return RedirectResponse("/", status_code=303)
+        return FileResponse(STATIC / "try.html")
+
+    if emulator:
+
+        @app.post("/api/demo/start")
+        def start_demo(request: Request) -> Response:
+            now = clock()
+            client = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+                      or (request.client.host if request.client else "?"))
+            recent = [t for t in starts.get(client, []) if now - t < timedelta(hours=1)]
+            if len(recent) >= demo.STARTS_PER_HOUR:
+                raise HTTPException(429, "Too many demos from here this hour.")
+            expire_demos(now)
+            if sum(1 for i in store.all_ids() if i.startswith("demo-")) >= demo.MAX_DEMOS:
+                raise HTTPException(503, "The demo is full right now. Try again in a while.")
+            starts[client] = recent + [now]
+
+            n = secrets.token_hex(4)
+            h = Household(
+                id=f"demo-{int(now.timestamp() // 60)}-{n}", resident="Margaret",
+                doorbell=emulator.add("doorbell", f"Front Door {n}"),
+                chime=emulator.add("chime", f"Kitchen Chime {n}"),
+                sensor=emulator.add("contact_sensor", f"Front Door Sensor {n}"),
+                trusted=[Trusted("Sarah", f"sarah+{n}@example.invalid")])
+            with lock:
+                store.save(h)
+            change(h.id, rules.switch_on)
+            response = Response(status_code=204)
+            for role, email in (("resident", None), ("family", h.trusted[0].email)):
+                response.set_cookie(COOKIES[role], store.grant(h.id, role, email),
+                                    httponly=True, samesite="strict", secure=secure_cookies,
+                                    max_age=int(demo.DEMO_LIFETIME.total_seconds()))
+            return response
+
+        @app.post("/api/demo/door")
+        def play_door(body: DoorIn, household_id: str = Depends(resident)) -> dict:
+            if not household_id.startswith("demo-"):
+                raise HTTPException(403, "only demo households have a playable door")
+            h = load(household_id)
+            before = len(store.journal(h.id))
+            devices = {"doorbell": h.doorbell, "sensor": h.sensor}
+            for kind, device, sub_type in demo.DOOR[body.action]:
+                emulator.inject(kind, devices[device], sub_type)
+            # The webhook comes back through the emulator; wait briefly for the
+            # decision so the page can say (and speak) what the chime did.
+            chime = None
+            for _ in range(30 if body.action == "ring" else 0):
+                new = [t for _, t in store.journal(h.id)[before:] if t.startswith("chime")]
+                if new:
+                    chime = new[0].split()[1].rstrip(":")
+                    break
+                time.sleep(0.1)
+            return {"chime": chime}
 
     # ------------------------------------------------------------------ operator
 
@@ -512,19 +629,33 @@ the "code" given for the courier.</p>
 </main></body></html>"""
 
 
+def fernet_key(secret: str) -> bytes:
+    """A Fernet key as given, or one derived from any other secret (a hosting
+    platform's generated value is random but not in Fernet's format)."""
+    try:
+        Fernet(secret)
+        return secret.encode()
+    except ValueError:
+        return base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
+
+
 def _from_env() -> FastAPI:
     data = Path(os.environ.get("CALLFIRST_DATA", "data"))
     data.mkdir(parents=True, exist_ok=True)
-    store = Store(data / "callfirst.db", os.environ["CALLFIRST_KEY"])
-    ring = Ring(os.environ.get("RING_API_BASE", "http://127.0.0.1:8787"),
-                os.environ.get("RING_TOKEN", "sandbox"))
-    base_url = os.environ.get("CALLFIRST_BASE_URL", "http://127.0.0.1:8100")
+    store = Store(data / "callfirst.db", fernet_key(os.environ["CALLFIRST_KEY"]))
+    ring_base = os.environ.get("RING_API_BASE", "http://127.0.0.1:8787")
+    ring = Ring(ring_base, os.environ.get("RING_TOKEN", "sandbox"))
+    base_url = (os.environ.get("CALLFIRST_BASE_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+                or "http://127.0.0.1:8100")
+    emulator = demo.Emulator(ring_base) if os.environ.get("CALLFIRST_DEMO") == "1" else None
+    port = os.environ.get("PORT", "8100")
     return create_app(store, ring, os.environ["RING_WEBHOOK_KEY"],
                       os.environ.get("CALLFIRST_ADMIN_TOKEN", ""),
                       mailer=notify.from_env(data), base_url=base_url,
                       sender=os.environ.get("CALLFIRST_SENDER",
                                             "Call First <alerts@callfirst.invalid>"),
-                      secure_cookies=base_url.startswith("https://"))
+                      secure_cookies=base_url.startswith("https://"), emulator=emulator,
+                      self_url=f"http://127.0.0.1:{port}")
 
 
 def __getattr__(name: str):

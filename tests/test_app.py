@@ -210,14 +210,14 @@ def test_nothing_without_a_link(world):
     assert stranger.get("/api/resident").status_code == 401
     assert stranger.get("/api/family").status_code == 401
     assert stranger.post("/api/resident/off").status_code == 401
-    stranger.cookies.set("callfirst", "guessed-token")
+    stranger.cookies.set("callfirst_resident", "guessed-token")
     assert stranger.get("/api/resident").status_code == 401
 
 
 def test_a_bad_link_opens_nothing(world):
     stranger = TestClient(world.app)
     assert stranger.get("/r/not-a-token", follow_redirects=False).status_code == 404
-    assert "callfirst" not in stranger.cookies
+    assert not stranger.cookies
 
 
 def test_a_family_link_is_not_a_resident_link(world):
@@ -412,3 +412,109 @@ def test_static_files_cannot_escape_their_folder(world):
     assert client.get("/static/fonts/atkinson-hyperlegible-400.woff2").status_code == 200
     for path in ("/static/../app.py", "/static/..%2Fapp.py", "/static/fonts/../../store.py"):
         assert client.get(path).status_code == 404
+
+
+def test_resident_and_family_can_share_a_browser(world):
+    both = TestClient(world.app)
+    both.cookies.update(world.resident.cookies)
+    both.cookies.update(world.family.cookies)
+    assert both.get("/api/resident").status_code == 200
+    assert both.get("/api/family").status_code == 200
+
+
+def test_a_family_token_in_the_resident_cookie_opens_nothing(world):
+    stolen = TestClient(world.app)
+    stolen.cookies.set("callfirst_resident", world.family.cookies["callfirst_family"])
+    assert stolen.get("/api/resident").status_code == 401
+
+
+# --------------------------------------------------------------------------- hosted demo
+
+
+class FakeEmulator:
+    """Stands in for ring-sandbox: devices get ids, injected events come back as
+    signed webhooks, like the emulator's own delivery."""
+
+    def __init__(self):
+        self.devices, self.client, self.clock = [], None, None
+
+    def add(self, kind, name):
+        self.devices.append(kind)
+        return f"{kind}-{len(self.devices)}"
+
+    def inject(self, kind, device, sub_type=None):
+        raw = payload(kind, device, self.clock(), sub_type)
+        self.client.post("/webhooks/ring", content=raw,
+                         headers={"x-signature": webhooks.sign(KEY, raw)})
+
+    def healthy(self):
+        return True
+
+    def register(self, url, key):
+        pass
+
+
+@pytest.fixture
+def hosted(tmp_path):
+    clock, emulator = Clock(), FakeEmulator()
+    app = create_app(Store(tmp_path / "d.db", Fernet.generate_key()), FakeRing(), KEY,
+                     ADMIN["x-admin-token"],
+                     clock=clock, background=False, emulator=emulator,
+                     base_url="http://testserver")
+    emulator.client, emulator.clock = TestClient(app), clock
+    return app, clock, emulator
+
+
+def test_a_visitor_can_start_a_demo_and_play_the_door(hosted):
+    app, clock, emulator = hosted
+    visitor = TestClient(app)
+    assert visitor.post("/api/demo/start").status_code == 204
+    assert emulator.devices == ["doorbell", "chime", "contact_sensor"]
+    view = visitor.get("/api/resident").json()
+    assert view["demo"] and view["enabled"]
+    assert visitor.post("/api/demo/door", json={"action": "ring"}).json() == \
+        {"chime": "ring-appstore-event-1"}
+    clock.now = T0 + seconds(20)
+    visitor.post("/api/demo/door", json={"action": "open"})
+    family = visitor.get("/api/family").json()
+    assert [a["reason"] for a in family["alerts"]][0] == "answered"
+
+
+def test_demo_door_rejects_unknown_actions_and_other_households(hosted, world):
+    app, _, _ = hosted
+    visitor = TestClient(app)
+    visitor.post("/api/demo/start")
+    assert visitor.post("/api/demo/door", json={"action": "unlock"}).status_code == 422
+    assert TestClient(app).post("/api/demo/door", json={"action": "ring"}).status_code == 401
+
+
+def test_demo_starts_are_rate_limited(hosted):
+    app, _, _ = hosted
+    visitor = TestClient(app)
+    codes = [visitor.post("/api/demo/start").status_code for _ in range(7)]
+    assert codes[:6] == [204] * 6 and codes[6] == 429
+
+
+def test_demo_households_expire(hosted):
+    app, clock, _ = hosted
+    visitor = TestClient(app)
+    visitor.post("/api/demo/start")
+    clock.now = T0 + timedelta(hours=3)
+    app.state.tick()
+    assert visitor.get("/api/resident").status_code == 401
+
+
+def test_without_the_demo_there_is_no_demo(world):
+    client = TestClient(world.app)
+    assert client.post("/api/demo/start").status_code in (404, 405)
+    assert client.get("/try", follow_redirects=False).status_code == 303
+
+
+def test_a_real_household_door_cannot_be_played(hosted):
+    app, _, emulator = hosted
+    link = TestClient(app).post("/api/households", headers=ADMIN, json={
+        "id": "real-home", "resident": "Ann", "doorbell": "db-real",
+        "trusted": [{"name": "Kim", "email": "kim@example.com"}]}).json()["resident_link"]
+    ann = TestClient(app)
+    ann.get(link.replace("http://testserver", ""))
+    assert ann.post("/api/demo/door", json={"action": "ring"}).status_code == 403

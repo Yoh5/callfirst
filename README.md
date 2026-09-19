@@ -78,8 +78,8 @@ already manipulating them. Four threats, each with tests:
 | Forged or replayed webhooks | HMAC over the raw body before parsing, freshness from the signed body, one action per `request_id` | `test_webhooks.py`, `test_app.py` |
 | The schedule leaks | households, alerts and the journal encrypted at rest; one call deletes everything | `test_app.py` |
 
-`python scripts/mutate.py` breaks 29 of these rules one at a time; the suite
-catches all 29. Reading pasted messages with a model is limited to 20 per
+`python scripts/mutate.py` breaks 32 of these rules one at a time; the suite
+catches all 32. Reading pasted messages with a model is limited to 20 per
 household per hour (OWASP LLM10).
 
 ## Who sees what
@@ -93,11 +93,23 @@ household per hour (OWASP LLM10).
 - Links are exchanged once for an HttpOnly, SameSite=Strict cookie and stored
   only as hashes. Pages load nothing from other origins (strict CSP).
 
+## Try it online
+
+The hosted demo gives every visitor their own household and a front door to
+play from the browser: *someone rings*, *open the door*... Each button goes to
+the Ring emulator running beside the service (bound to localhost, never
+exposed), which sends a signed webhook back, exactly as Ring would. The chime's
+reminder is spoken by the browser. Demo households are deleted after two hours.
+
+Deploying it is one Render Blueprint (`render.yaml`): Render generates every
+secret; `ANTHROPIC_API_KEY` is optional. `scripts/hosted.py` is the start
+command.
+
 ## Run it
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 104 tests
+.venv/Scripts/python -m pytest              # 112 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```

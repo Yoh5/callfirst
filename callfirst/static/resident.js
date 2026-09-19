@@ -6,6 +6,7 @@ const $ = (id) => document.getElementById(id);
 function statusCard(s) {
   const card = $("status");
   const told = s.trusted.map((t) => t.name).join(" and ") || "nobody yet";
+  const are = s.trusted.length > 1 ? "are" : "is", were = s.trusted.length > 1 ? "were" : "was";
   let kind, title, text, buttons;
   if (!s.enabled) {
     kind = "off"; title = "Call First is off";
@@ -13,13 +14,13 @@ function statusCard(s) {
     buttons = [el("button", {onclick: () => run("POST", "/api/resident/on")}, "Switch on")];
   } else if (s.paused_until) {
     kind = "paused"; title = `Paused until ${clock(s.paused_until)}`;
-    text = `${told} were told that you paused it.`;
+    text = `${told} ${were} told that you paused it.`;
     buttons = [el("button", {onclick: () => run("POST", "/api/resident/resume")}, "Protect me again now")];
   } else {
     kind = s.heightened_until ? "heightened" : "on";
-    title = "Your door is protected";
+    title = s.heightened_until ? "Heightened watch" : "Your door is protected";
     text = s.heightened_until
-      ? `After what happened, ${told} are told as soon as anyone unexpected comes, until ${when(s.heightened_until)}.`
+      ? `After what happened, ${told} ${are} told as soon as anyone unexpected comes, until ${when(s.heightened_until)}.`
       : "If someone you were not expecting rings, you will hear: “Before you hand anything over, call your family first.”";
     buttons = [
       el("button", {class: "secondary", onclick: () => run("POST", "/api/resident/pause", {hours: 2})}, "Pause for 2 hours"),
@@ -34,8 +35,49 @@ function statusCard(s) {
       : "Nothing is recorded or sent while it is off."));
 }
 
+// The demo has no real chime, so the browser speaks the two prepared messages.
+const SLOTS = {
+  "ring-appstore-event-1": "Before you hand anything over, call your family first, and ask for your family word.",
+  "ring-appstore-event-2": "Your family has been told someone is at the door. Please call them before you open.",
+};
+const DOOR = [
+  ["ring", "Someone rings"], ["stay", "They wait at the door"], ["open", "Open the door"],
+  ["close", "Close the door"], ["offline", "Doorbell goes offline"], ["online", "Doorbell back online"],
+];
+
+function say(text) {
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US"; u.rate = 0.92;
+    speechSynthesis.speak(u);
+  } catch { /* no speech in this browser: the text is on screen anyway */ }
+}
+
+function demoPanel(on) {
+  const panel = $("demo");
+  if (!on || !panel.hidden) { panel.hidden = !on; return; }
+  panel.hidden = false;
+  $("door").replaceChildren(...DOOR.map(([action, label]) => el("button", {
+    class: action === "ring" ? "" : "secondary",
+    onclick: async (e) => {
+      e.target.disabled = true;
+      try {
+        const r = await api("POST", "/api/demo/door", {action});
+        const line = r.chime
+          ? [el("span", {}, "The chime said: "), el("span", {class: "said"}, `“${SLOTS[r.chime]}”`)]
+          : [`${label}: sent to the doorbell.`, action === "ring" ? " Nothing played: the reminder already played for this visitor, or they were expected, or protection is paused or off." : ""];
+        $("door-said").replaceChildren(...line);
+        if (r.chime) say(SLOTS[r.chime]);
+      } finally { e.target.disabled = false; }
+      setTimeout(refresh, 600);
+    },
+  }, label)));
+}
+
 function render(s) {
   setZone(s.timezone);
+  demoPanel(s.demo);
   $("who").textContent = s.resident;
   statusCard(s);
 
@@ -59,6 +101,10 @@ function render(s) {
     : [el("li", {class: "empty"}, "None.")]));
 
   renderAlerts($("alerts"), s.alerts, true);
+  if (s.reminders?.length) {
+    $("alerts").prepend(el("p", {class: "small"},
+      `The reminder played at ${s.reminders.map(clock).join(", ")}.`));
+  }
 }
 
 async function refresh() { render(await api("GET", "/api/resident")); }

@@ -13,6 +13,14 @@
 <body class="large">
 <nav><a class="brand" href="/"><img src="/static/logo-mark.svg" alt=""> Call First</a> <span class="who" id="who"></span></nav>
 <main>
+  <section class="card demo" id="demo" hidden>
+    <div class="label">Demo · play Margaret's front door</div>
+    <div class="row" id="door"></div>
+    <p class="small" id="door-said" aria-live="polite">Press a button. Each one goes to the Ring
+      emulator, which sends a signed webhook back here.</p>
+    <p class="small"><a href="/family" target="_blank" rel="noopener">Open Sarah's view in a new
+      tab</a> to see what the family gets.</p>
+  </section>
   <div id="status" class="status off" aria-live="polite"><h1>Loading…</h1></div>
 
   <h2>Who is told</h2>
