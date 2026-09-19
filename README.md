@@ -102,7 +102,7 @@ exposed), which sends a signed webhook back, exactly as Ring would. The chime's
 reminder is spoken by the browser. Demo households are deleted after two hours.
 
 Deploying it is one Render Blueprint (`render.yaml`): Render generates every
-secret; `ANTHROPIC_API_KEY` is optional. `scripts/hosted.py` is the start
+secret; `OPENAI_API_KEY` is optional. `scripts/hosted.py` is the start
 command.
 
 ## Run it
@@ -120,9 +120,9 @@ the family was emailed, with the image.
 
 `scripts/demo.py` does the same setup, prints Margaret's and Sarah's links, and
 lets you play the front door from the keyboard (`r` ring, `o` door opens...).
-Alert emails land in `data/demo/mail/`. With `ANTHROPIC_API_KEY` set, pasted
-delivery messages are read by a model (it proposes; code decides); without it,
-by rules.
+Alert emails land in `data/demo/mail/`. With `OPENAI_API_KEY` set (or
+`ANTHROPIC_API_KEY`), pasted delivery messages are read by a model (it
+proposes; code decides); without one, by rules.
 
 ## Built on
 

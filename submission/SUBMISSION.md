@@ -90,7 +90,8 @@ replayed deliveries. A rules engine, ordinary tested code, decides everything. T
 Partner API plays chime slots and fetches one still image, only when an alert is
 sent. Households, alerts and the journal are encrypted at rest in SQLite; access
 links are stored as hashes. Pasted delivery messages are read by rules, or
-optionally by Claude Haiku with a single tool that can only return fields. Either
+optionally by an OpenAI model (GPT-5.6 Luna) with a single strict function that
+can only return fields. Either
 way, code validates them against the pasted text. Ring publishes no simulator, so
 everything runs against [ring-sandbox](https://github.com/josepha-mayo/ring-sandbox),
 an MIT emulator we read in full and pinned by hash in its own virtualenv.
@@ -131,7 +132,7 @@ centre that already hands out doorbells.
 
 ## Built with
 
-python, fastapi, sqlite, ring-partner-api, ring-sandbox, claude, cryptography,
+python, fastapi, sqlite, ring-partner-api, ring-sandbox, openai, cryptography,
 javascript, html, css
 
 ## Links to fill in at submission
