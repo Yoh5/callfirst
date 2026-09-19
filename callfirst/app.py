@@ -450,12 +450,13 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         app.add_api_route(f"/{page}", (lambda p=page: FileResponse(STATIC / f"{p}.html")),
                           methods=["GET"])
 
-    @app.get("/static/{name}")
+    @app.get("/static/{name:path}")
     def static(name: str) -> FileResponse:
         path = (STATIC / name).resolve()
-        if path.parent != STATIC.resolve() or not path.is_file():
+        if not path.is_relative_to(STATIC.resolve()) or not path.is_file():
             raise HTTPException(404, "not found")
-        return FileResponse(path)
+        headers = {"Cache-Control": "public, max-age=86400"} if name.startswith("fonts/") else None
+        return FileResponse(path, headers=headers)
 
     @app.get("/favicon.ico")
     def favicon() -> RedirectResponse:

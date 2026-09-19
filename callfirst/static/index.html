@@ -4,46 +4,82 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Call First</title>
-<meta name="description" content="Courier scams end at the front door. So does this.">
+<meta name="description" content="Courier scams end at the front door. So does this. Courier-scam protection on the Ring doorbell that is already there.">
 <link rel="icon" href="/static/favicon.svg">
+<link rel="preload" href="/static/fonts/atkinson-hyperlegible-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<nav><img src="/static/favicon.svg" alt=""> Call First</nav>
+<nav>
+  <a class="brand" href="/"><img src="/static/logo-mark.svg" alt=""> Call First</a>
+  <span class="links"><a href="#how">How it works</a><a href="/privacy">Privacy</a></span>
+</nav>
 <main>
   <div class="hero">
-    <h1>Courier scams end at the front door. So does this.</h1>
-    <p class="lede">The scam starts on the phone — a grandchild in trouble, a federal agent, a
-      bank — and ends when a courier comes to collect cash or gold. The FBI counted at least
-      1,737 of these pickups, about $186 million, between 2023 and May 2025. The person at home
-      is <em>expecting</em> the courier, so alerting on strangers does not help.</p>
+    <div>
+      <span class="eyebrow">For the Ring doorbell already there</span>
+      <h1>Courier scams end at the front door. <span>So does this.</span></h1>
+      <p class="lede">The scam starts on the phone: a grandchild in trouble, a federal agent, the
+        bank. It ends when a courier comes to collect the cash or the gold. The person at home
+        is <em>expecting</em> the courier, so alerting on strangers does not help.</p>
+    </div>
+    <div class="scene" aria-label="What happens when an unexpected visitor rings">
+      <div class="chime">
+        <div class="label">The chime, indoors</div>
+        <q>Before you hand anything over, call your family first, and ask for your family word.</q>
+      </div>
+      <div class="phone">
+        <div class="label">Sarah's phone, if the door opens</div>
+        <strong>The door was answered for an unexpected visitor</strong>
+        <span class="small">Margaret's front door, 3:04 PM. The door sensor saw the door open.
+          Call Margaret now.</span>
+      </div>
+    </div>
   </div>
 
-  <h2>What it does, on the Ring doorbell already there</h2>
+  <div class="stats">
+    <div class="stat"><b>1,737</b><span>courier pickups counted by the FBI, 2023 to May 2025</span></div>
+    <div class="stat"><b>$186M</b><span>taken in those pickups</span></div>
+    <div class="stat"><b>98%</b><span>of losses in Boston reported by people over 60</span></div>
+  </div>
+
+  <h2 id="how">How it works</h2>
   <ol class="steps">
-    <li><strong>Someone unexpected rings</strong> — not a visit or a delivery declared in
-      advance — and the chime says: <em>“Before you hand anything over, call your family
-      first, and ask for your family word.”</em></li>
-    <li><strong>The door is opened for them</strong>, and the family is told at once, with the
-      doorbell's still image and how sure the system is.</li>
-    <li><strong>The courier comes back</strong> — they often do — and for a week the family is
-      told as soon as anyone unexpected appears.</li>
-    <li><strong>Someone talks the resident into switching it off</strong>, and the family is told that
-      too. Scammers demand secrecy; this breaks it.</li>
+    <li><strong>Someone unexpected rings.</strong> Not a visit or a delivery declared in
+      advance. The chime plays the reminder: the one code the scammer cannot know is the
+      family's.</li>
+    <li><strong>The door is opened for them.</strong> The family is told at once, with the
+      doorbell's still image and how sure the system is: a door sensor saw it, or only how
+      long the visitor stayed.</li>
+    <li><strong>The courier comes back.</strong> They often do. For a week, the family is told
+      as soon as anyone unexpected appears, before the door opens.</li>
+    <li><strong>Someone talks the resident into switching it off.</strong> The family is told
+      that too. Scammers demand secrecy; this breaks it.</li>
   </ol>
 
-  <h2>What it will not do</h2>
-  <ul>
-    <li>Recognise faces, or anyone.</li>
-    <li>Call the police. People decide.</li>
-    <li>Let a language model decide anything. A model may read a pasted delivery message;
-      code checks it against the message itself.</li>
-    <li>Run without the resident's say. The resident switches it on, chooses who is told,
-      and can delete everything in one step.</li>
-  </ul>
+  <h2>Measured, not demonstrated</h2>
+  <div class="stats">
+    <div class="stat"><b>60 / 60</b><span>families told, through webhooks dropped, duplicated and delayed</span></div>
+    <div class="stat"><b>0</b><span>reminders played twice</span></div>
+    <div class="stat"><b>29 / 29</b><span>rules broken on purpose, each caught by a test</span></div>
+  </div>
+  <p class="small">The false alerts and the misses are published with the results: a neighbour
+    let in unannounced is a false alert, and without a door sensor a handover under a minute
+    is missed.</p>
 
-  <p class="small"><a href="/privacy">Privacy policy</a> · Built on the Ring Partner API for
-    the Amazon Developer Hackathon 2026.</p>
+  <h2>What it will not do</h2>
+  <ul class="nots">
+    <li><b>Recognise faces.</b> Or anyone. It never tries to identify a visitor.</li>
+    <li><b>Call the police.</b> False alerts exist; people decide.</li>
+    <li><b>Let a model decide.</b> A model may read a pasted delivery message. Code checks it
+      against the message itself.</li>
+    <li><b>Run without the resident's say.</b> The resident switches it on, chooses who is
+      told, and can delete everything in one step.</li>
+  </ul>
 </main>
+<footer>
+  Call First, built on the Ring Partner API for the Amazon Developer Hackathon 2026 ·
+  <a href="/privacy">Privacy policy</a>
+</footer>
 </body>
 </html>

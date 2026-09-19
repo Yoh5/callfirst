@@ -405,3 +405,10 @@ def test_delete_tells_the_family_then_removes_everything(world):
     assert world.family.get("/api/family").status_code == 401
     assert world.send("button_press", DOORBELL, 60).status_code == 204
     assert len(world.ring.played) == 1
+
+
+def test_static_files_cannot_escape_their_folder(world):
+    client = TestClient(world.app)
+    assert client.get("/static/fonts/atkinson-hyperlegible-400.woff2").status_code == 200
+    for path in ("/static/../app.py", "/static/..%2Fapp.py", "/static/fonts/../../store.py"):
+        assert client.get(path).status_code == 404

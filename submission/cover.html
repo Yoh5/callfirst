@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Call First — cover</title>
+<style>
+@font-face { font-family: "AH"; font-weight: 400;
+  src: url("../callfirst/static/fonts/atkinson-hyperlegible-400.woff2") format("woff2"); }
+@font-face { font-family: "AH"; font-weight: 700;
+  src: url("../callfirst/static/fonts/atkinson-hyperlegible-700.woff2") format("woff2"); }
+:root { --bg: #f8f5ef; --ink: #18202e; --muted: #566072; --line: #e4ddd1; --brand: #1d4e89;
+  --accent: #f5a524; --alarm: #b3261e; }
+* { box-sizing: border-box; margin: 0; }
+body { font-family: "AH", sans-serif; color: var(--ink); background: #ddd; }
+.frame { width: 1500px; height: 1000px; background: var(--bg); position: relative; overflow: hidden;
+  display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; padding: 90px; }
+.wide .frame { width: 1280px; height: 640px; padding: 64px 70px; gap: 44px; }
+.logo .frame { width: 1200px; height: 400px; display: flex; justify-content: center; padding: 0; }
+
+/* The mark's arcs, grown into the background. */
+.waves { position: absolute; right: -260px; top: 50%; width: 900px; height: 900px;
+  transform: translateY(-50%); pointer-events: none; }
+
+.brand { display: flex; align-items: center; gap: 18px; font-weight: 700; font-size: 44px;
+  letter-spacing: -.01em; margin-bottom: 44px; }
+.brand img { width: 72px; height: 72px; }
+.logo .brand { font-size: 110px; gap: 36px; margin: 0; }
+.logo .brand img { width: 170px; height: 170px; }
+h1 { font-size: 78px; line-height: 1.04; letter-spacing: -.03em; }
+h1 span { color: var(--brand); }
+.sub { margin-top: 30px; font-size: 29px; line-height: 1.35; color: var(--muted); max-width: 640px; }
+.wide .brand { font-size: 34px; margin-bottom: 30px; } .wide .brand img { width: 56px; height: 56px; }
+.wide h1 { font-size: 60px; } .wide .sub { font-size: 23px; margin-top: 22px; }
+
+.scene { display: grid; gap: 22px; position: relative; z-index: 1; }
+.card { background: #fff; border: 1px solid var(--line); border-radius: 26px; padding: 26px 30px;
+  box-shadow: 0 2px 4px rgba(24,32,46,.06), 0 18px 40px rgba(24,32,46,.10); }
+.chime { border-top: 8px solid var(--accent); }
+.phone { border-top: 8px solid var(--alarm); display: grid; grid-template-columns: 1fr 150px; gap: 20px;
+  align-items: center; }
+.label { font-size: 17px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 10px; }
+.chime q { display: block; font-size: 31px; font-weight: 700; line-height: 1.28; quotes: "“" "”"; }
+.phone strong { display: block; font-size: 25px; line-height: 1.25; }
+.phone .small { font-size: 19px; color: var(--muted); margin-top: 8px; line-height: 1.35; }
+.phone img { width: 150px; height: 112px; object-fit: cover; border-radius: 12px; }
+.wide .card { padding: 20px 24px; border-radius: 22px; }
+.wide .chime q { font-size: 24px; } .wide .phone strong { font-size: 20px; }
+.wide .phone .small { font-size: 16px; } .wide .label { font-size: 14px; }
+.wide .phone { grid-template-columns: 1fr 120px; } .wide .phone img { width: 120px; height: 90px; }
+.ring { position: absolute; left: 90px; bottom: 44px; font-size: 20px; color: var(--muted); }
+.wide .ring { left: 70px; bottom: 30px; font-size: 16px; }
+.logo .ring, .logo .waves, .logo .scene, .logo .text > :not(.brand) { display: none; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <svg class="waves" viewBox="0 0 100 100" aria-hidden="true">
+    <path d="M30 20a42 42 0 0 1 0 60" fill="none" stroke="#f5a524" stroke-opacity=".16" stroke-width="5" stroke-linecap="round"/>
+    <path d="M44 6a60 60 0 0 1 0 88" fill="none" stroke="#f5a524" stroke-opacity=".10" stroke-width="5" stroke-linecap="round"/>
+  </svg>
+  <div class="text">
+    <div class="brand"><img src="../callfirst/static/logo-mark.svg" alt=""> Call First</div>
+    <h1>Courier scams end at the front door. <span>So does this.</span></h1>
+    <p class="sub">Protection against courier scams, on the Ring doorbell that is already there.</p>
+  </div>
+  <div class="scene">
+    <div class="card chime">
+      <div class="label">The chime, indoors</div>
+      <q>Before you hand anything over, call your family first, and ask for your family word.</q>
+    </div>
+    <div class="card phone">
+      <div>
+        <div class="label">If the door opens</div>
+        <strong>The door was answered for an unexpected visitor</strong>
+        <div class="small">The family is told at once. Call Margaret now.</div>
+      </div>
+      <img src="../demo/default.jpg" alt="">
+    </div>
+  </div>
+  <div class="ring">Ring Partner API · Amazon Developer Hackathon 2026</div>
+</div>
+<script>
+  document.body.className = new URLSearchParams(location.search).get("v") || "";
+</script>
+</body>
+</html>

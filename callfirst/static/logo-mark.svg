@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Call First</title>
+  <rect width="64" height="64" rx="15" fill="#1d4e89"/>
+  <path d="M15 53V20a9 9 0 0 1 9-9h8a9 9 0 0 1 9 9v33" fill="none" stroke="#fff" stroke-width="4.5" stroke-linejoin="round"/>
+  <path d="M10 53h36" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/>
+  <circle cx="34.5" cy="34" r="3" fill="#fff"/>
+  <path d="M46.5 27.5a9.5 9.5 0 0 1 0 13" fill="none" stroke="#f5a524" stroke-width="4" stroke-linecap="round"/>
+  <path d="M51.5 22.5a16.5 16.5 0 0 1 0 23" fill="none" stroke="#f5a524" stroke-width="4" stroke-linecap="round"/>
+</svg>
