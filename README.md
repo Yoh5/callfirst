@@ -1,0 +1,85 @@
+# Call First
+
+**Courier scams end at the front door. So does this.**
+
+A courier scam starts on the phone — a fake grandchild, a fake federal agent —
+and ends when a courier comes to an older person's home to collect cash or
+gold. The FBI counted at least 1,737 of these pickups, about $186 million, from
+2023 to May 2025. The victim is *expecting* the courier, so "alert on
+strangers" does not help.
+
+Call First works on the Ring doorbell that is already there:
+
+1. **An unexpected visitor rings** — not a declared visit, not a declared
+   delivery — and the chime plays: *"Before you hand anything over, call your
+   family first, and ask for your family word."*
+2. **The door is opened for them** — and the family is told now, with the
+   doorbell's still image and how sure the system is.
+3. **The courier comes back** — couriers often do — and during the following
+   week the family is told as soon as an unexpected visitor appears.
+4. **The resident is talked into switching it off** — and the family is told
+   that too. Scammers demand secrecy; this breaks it.
+
+The resident switches it on and chooses who is told. No faces are recognised,
+no police are called, and a language model decides nothing. The full reasoning
+is in [DESIGN.md](DESIGN.md).
+
+## Measured, not demonstrated
+
+`python scripts/scenarios.py`:
+
+| Scenario | Sensor: reminder / told | Doorbell only: reminder / told |
+|---|---|---|
+| Courier pickup: rings, door opens, stays 95 s | yes / answered | yes / answered |
+| Quick handover: door opens, gone in 25 s | yes / answered | yes / - |
+| Carer inside their declared window | no / - | no / - |
+| Signature delivery inside its declared window | no / - | no / - |
+| Unannounced parcel drop, door never opened | yes / - | yes / - |
+| Neighbour drops by, door opens (false alert) | yes / answered | yes / answered |
+| Courier returns two days after an alert | yes / heightened | yes / heightened |
+| Protection paused during the day | no / change | no / change |
+| Pasted 'delivery' that is really a collection | yes / answered | yes / answered |
+| Forged webhook without a valid signature | no / rejected | no / rejected |
+| Doorbell offline during a visit | yes / blind | yes / blind |
+
+Two rows are failures, reported as such: the neighbour is a false alert, and
+without a door sensor a handover under a minute is missed.
+
+## Security
+
+The system knows when an older person is alone and it faces people who are
+already manipulating her. Four threats, each with tests:
+
+| Threat | Defence | Tests |
+|---|---|---|
+| The victim is coached to switch it off | every change that weakens protection today alerts the family; a pause ends by itself after 24 h | `test_rules.py` |
+| A fake "delivery" notice makes the courier look expected (prompt injection) | readers only propose; code refuses collections by the text itself and requires the tracking number to appear in it | `test_deliveries.py` |
+| Forged or replayed webhooks | HMAC over the raw body before parsing, freshness from the signed body, one action per `request_id` | `test_webhooks.py`, `test_app.py` |
+| The schedule leaks | households, alerts and the journal encrypted at rest; one call deletes everything | `test_app.py` |
+
+`python scripts/mutate.py` breaks 20 of these rules one at a time; the suite
+catches all 20.
+
+## Run it
+
+```bash
+python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
+.venv/Scripts/python -m pytest              # 79 tests
+python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
+.venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
+```
+
+`scripts/live.py` starts the emulator and the service, registers a webhook,
+plays a courier visit and checks that the chime played inside the emulator and
+the family was told.
+
+## Built on
+
+- The [Ring Partner API](https://developer.amazon.com/docs/ring/api-documentation.html):
+  `button_press`, `motion_detected` (human), `contact_sensor_faulted`,
+  `device_online/offline` webhooks; image snapshots; chime playback.
+- [ring-sandbox](https://github.com/josepha-mayo/ring-sandbox) (MIT) as the
+  emulator, read in full before use. Ring publishes no simulator; see
+  [FRICTION.md](FRICTION.md).
+
+MIT licensed.

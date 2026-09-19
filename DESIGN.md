@@ -1,6 +1,6 @@
-# Threshold — design
+# Call First — design
 
-*Working name. Ring track, Build, Ship, Shape: Amazon Developer Hackathon.
+*Ring track, Build, Ship, Shape: Amazon Developer Hackathon.
 Submission deadline: 23 October 2026, 12:00 PDT.*
 
 This page is agreed before any code is written. Everything below that is a fact
@@ -30,6 +30,9 @@ the victim's front door, where a courier collects cash or gold.
 happens at the door.** That is where a Ring doorbell already is.
 
 ## 2. The insight the design rests on
+
+The name is the instruction the whole product exists to deliver, at the one
+moment it matters: before you hand anything over, **call first**.
 
 The obvious product — *alert when a stranger comes to the door* — does not work
 here, and the reason is the whole point of this project: **the victim is
@@ -87,8 +90,13 @@ Declared in advance, by the resident or with them:
 - **Expected deliveries** — the resident pastes the carrier's notification. A
   model **extracts** carrier, tracking number, window and whether a signature is
   required. **Code validates** it: a known carrier, a well-formed tracking
-  number, a window within the next days. A signature-required delivery is the
-  one case where opening the door to a visitor is expected.
+  number **that appears word for word in the pasted text** (the model cannot
+  invent one), a window within the next 14 days and no longer than 12 hours.
+  Inside a declared window a visitor is expected, and so is opening the door to
+  them: people take parcels from drivers' hands, and alerting on that would
+  teach the family to ignore alerts. A courier cannot know the window. A coached
+  resident can be told to declare one, and that is what change alerts are for
+  (section 8a).
 - A **collection** is never an expected delivery, whatever words it arrives in.
   Nobody legitimate sends a courier to collect cash or gold.
 
@@ -112,14 +120,32 @@ calm ─(unexpected visitor rings)─▶ reminded ─(door answered)─▶ alert
    waiting for the door. The FBI notes that couriers often come back for a
    second pickup. *Choice:* *N* defaults to 7 days.
 4. **Any change to the protection itself** — pausing it, or adding a visit or a
-   delivery for today — **tells the trusted people at once** (section 8a).
+   delivery for today — **tells the trusted people at once** (section 8a). A
+   pause ends by itself after 24 hours: protection cannot be switched off
+   quietly for good.
 
 ## 7. What it does
 
-**The reminder at the door.** A short message the family records, played by the
-chime when an unexpected visitor rings:
+**The reminder at the door.** A short recorded message, played by the chime
+when an unexpected visitor rings:
 
-> *"Before you hand anything over, call Sarah and ask for our family word."*
+> *"Before you hand anything over, call your family first, and ask for your
+> family word."*
+
+*Decision — prepared, not recorded per family.* The Partner API plays chime
+audio only from the app's own slots, and a chime's audio configuration is
+read-only to partners
+([Partner API](https://developer.amazon.com/docs/ring/api-documentation.html)).
+A per-family recording is not something the API allows, so the product does not
+pretend to. Two slots, two messages:
+
+| Slot | Plays when | Message |
+|---|---|---|
+| `ring-appstore-event-1` | an unexpected visitor rings | the reminder above |
+| `ring-appstore-event-2` | an unexpected visitor rings during heightened watch | *"Your family has been told someone is at the door. Please call them before you open."* |
+
+The family word itself is never stored and never played. The message only
+points to it.
 
 The FBI and FTC advise families to agree a secret word, now that voices can be
 cloned ([FTC / FBI guidance](https://www.eyesift.com/blog/ai-voice-cloning-scams-verify-caller/)).
@@ -244,9 +270,17 @@ The false alerts are part of the result, not hidden from it.
 | 13–19 Oct | resident and family pages; report sheet |
 | 20–23 Oct | video, README, friction log, submission, slack |
 
-## 16. Open questions
+## 16. Decisions
 
-- The reminder's audio: recorded by the family in the page, or chosen from a few
-  prepared recordings? Recording is warmer; prepared is faster to build.
-- Delivery notifications: pasted only, or also forwarded by email?
-- The name.
+Taken on 19 September 2026, before code.
+
+- **Name: Call First.** It is the advice, not a metaphor. *Threshold* was the
+  working name.
+- **The reminder's audio: prepared.** Imposed by the API (section 7), and it
+  also keeps the family word out of every system.
+- **Delivery notifications: pasted only.** Forwarding by email would add an
+  inbound mail server — more attack surface for threat (b) — and nothing to the
+  demonstration. Pasting keeps the model's only input one visible piece of text.
+- **Reading notifications without a model works too.** A rule-based reader
+  handles the common carriers; the model is for the messy cases. Either way the
+  same code validates the result, so the tests do not depend on a model.
