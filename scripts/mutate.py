@@ -61,6 +61,12 @@ MUTATIONS = [
     ("callfirst/rules.py", "    h.trusted.append(person)\n    return [alert] if alert.recipients else []",
      "    h.trusted.append(person)\n    alert = _change(h, now, alert.detail)\n    return [alert] if alert.recipients else []",
      "newcomer told instead of the others"),
+    ("callfirst/app.py", "                if opened:", "                if False:",
+     "lost door webhook stays lost"),
+    ("callfirst/app.py", "                    and visit.expected is None and not visit.answered):",
+     "                    and True):", "sensor asked during expected visits"),
+    ("callfirst/app.py", "        if len(recent) >= READS_PER_HOUR:", "        if False:",
+     "model reads unbounded"),
     ("callfirst/app.py", "        if not admin_token or not hmac.compare_digest(",
      "        if False and not hmac.compare_digest(", "admin API open"),
 ]

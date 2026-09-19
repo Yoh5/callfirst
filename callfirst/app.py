@@ -38,7 +38,8 @@ from .household import ExpectedVisit, Household, Trusted, iso
 from .ring import Ring
 from .store import Store
 
-TICK_SECONDS = 15
+TICK_SECONDS = float(os.environ.get("CALLFIRST_TICK", "5"))
+READS_PER_HOUR = 20          # pasted notices read by a model, per household (OWASP LLM10)
 COOKIE = "callfirst"
 STATIC = Path(__file__).parent / "static"
 HEADERS = {
@@ -98,6 +99,7 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
                sender: str = "Call First <alerts@callfirst.invalid>",
                read_notice: Callable = reader.read, secure_cookies: bool = False) -> FastAPI:
     lock = threading.Lock()    # one household decision at a time: load, decide, save
+    reads: dict[str, list[datetime]] = {}
 
     # ------------------------------------------------------------------ doing what was decided
 
@@ -131,12 +133,32 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
             mailer.send(notify.invitation(person, h.resident, sender, f"{base_url}/f/{token}"))
 
     def tick() -> None:
+        """Every few seconds: ask the door sensor while an unexpected visitor is
+        there (a lost webhook must not mean a silent door), then close visits
+        nobody is at any more."""
         now = clock()
-        with lock:
-            for household_id in store.all_ids():
+        for household_id in store.all_ids():
+            h = store.load(household_id)
+            if not h or not h.visit:
+                continue
+            visit = h.visit
+            opened = None
+            if (ring and h.sensor and h.enabled and not h.paused(now)
+                    and visit.expected is None and not visit.answered):
+                opened = ring.sensor_open(h.sensor)
+            with lock:
                 h = store.load(household_id)
-                if h and h.visit and rules.tick(h, now):
-                    store.save(h)
+                if not h or not h.visit:
+                    continue
+                actions = []
+                if opened:
+                    seen = webhooks.Event(f"poll:{iso(now)}", now, "contact_sensor_faulted",
+                                          h.sensor, now)
+                    actions += rules.on_event(h, seen, now)
+                    actions.append(rules.Note("door open seen by asking the sensor"))
+                actions += rules.tick(h, now)
+                store.save(h)
+            act(h, actions, iso(now))
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -306,8 +328,12 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
 
     @app.post("/api/resident/deliveries/read")
     def read_delivery(body: NoticeIn, household_id: str = Depends(resident)) -> dict:
-        h = load(household_id)
-        proposal = read_notice(body.text, clock(), h.timezone)
+        h, now = load(household_id), clock()
+        recent = [t for t in reads.get(household_id, []) if now - t < timedelta(hours=1)]
+        if len(recent) >= READS_PER_HOUR:
+            raise HTTPException(429, "too many messages read this hour; fill in the form by hand")
+        reads[household_id] = recent + [now]
+        proposal = read_notice(body.text, now, h.timezone)
         fields = asdict(proposal)
         for key in ("start", "end"):
             fields[key] = h.local(fields[key]).isoformat() if fields[key] else None

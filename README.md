@@ -45,6 +45,25 @@ is in [DESIGN.md](DESIGN.md).
 Two rows are failures, reported as such: the neighbour is a false alert, and
 without a door sensor a handover under a minute is missed.
 
+### Through an unreliable pipe
+
+Webhooks get lost, duplicated and delayed. `python scripts/chaos.py 20 <seed>`
+runs the emulator in its `delivery` chaos mode and plays a courier visit at 20
+doors at once. Three seeds (7, 11, 23), 60 visits:
+
+| | |
+|---|---|
+| Webhooks dropped / duplicated / delayed | 21 / 76 / 159 |
+| Families told | **60 / 60** |
+| Reminder played twice | **0** |
+| Reminders played | 53 / 60 |
+
+A lost "door opened" webhook is caught by asking the sensor while an unexpected
+visitor is at the door, which is why every family was told. A lost doorbell
+press cannot be recovered: nothing else says someone rang, so 7 reminders did
+not play. This run also found a real bug: one SQLite connection shared by
+threads returned errors under load; every statement is now serialised.
+
 ## Security
 
 The system knows when an older person is alone and it faces people who are
@@ -57,8 +76,9 @@ already manipulating them. Four threats, each with tests:
 | Forged or replayed webhooks | HMAC over the raw body before parsing, freshness from the signed body, one action per `request_id` | `test_webhooks.py`, `test_app.py` |
 | The schedule leaks | households, alerts and the journal encrypted at rest; one call deletes everything | `test_app.py` |
 
-`python scripts/mutate.py` breaks 26 of these rules one at a time; the suite
-catches all 26.
+`python scripts/mutate.py` breaks 29 of these rules one at a time; the suite
+catches all 29. Reading pasted messages with a model is limited to 20 per
+household per hour (OWASP LLM10).
 
 ## Who sees what
 
@@ -75,7 +95,7 @@ catches all 26.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 99 tests
+.venv/Scripts/python -m pytest              # 103 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```

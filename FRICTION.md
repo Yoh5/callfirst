@@ -42,3 +42,20 @@ produces it on purpose. *Fix:* one sentence in the webhook docs.
 The one signal that makes "the door was opened" a fact rather than an inference
 is behind the Early Access program. We designed a second mode for doorbell-only
 homes and report its limits (a quick handover under 60 s is missed).
+
+## Lost webhooks, and what can be recovered
+
+Nothing in the documentation says whether webhooks are retried, for how long,
+or whether delivery is at-least-once. Against the emulator's chaos mode (10%
+dropped), we recover a lost *door opened* by polling the sensor's status while
+an unexpected visitor is at the door. A lost *button press* cannot be
+recovered: there is no queryable "last ding" for a doorbell outside event
+history, which only covers camera events. *Fix:* document the retry policy,
+and expose the last ding in device status.
+
+## Uninstall
+
+`app_integration_removed` is listed as a webhook, but its payload is not
+documented: which account or device it names. An integration must delete a
+household's data on removal (content policy), so the payload matters. Until it
+is documented, Call First deletes on the resident's request only.

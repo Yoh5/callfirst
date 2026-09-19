@@ -21,7 +21,12 @@ ADMIN = {"x-admin-token": "admin-test-token"}
 
 class FakeRing:
     def __init__(self):
-        self.played, self.snapped = [], []
+        self.played, self.snapped, self.polled = [], [], []
+        self.door_open = False
+
+    def sensor_open(self, sensor):
+        self.polled.append(sensor)
+        return self.door_open
 
     def play(self, chime, slot):
         self.played.append((chime, slot))
@@ -153,6 +158,41 @@ def test_stale_webhook_is_refused(world):
 def test_unknown_device_is_ignored_quietly(world):
     assert world.send("button_press", "someone-elses-doorbell").status_code == 204
     assert world.ring.played == []
+
+
+def test_a_lost_door_webhook_is_caught_by_asking_the_sensor(world):
+    world.send("button_press", DOORBELL, 0)
+    world.ring.door_open = True          # the door opened; its webhook never arrived
+    world.clock.now = T0 + seconds(20)
+    world.app.state.tick()
+    [alert] = alerts(world, "answered")
+    assert alert["confidence"] == "strong"
+    assert any("asking the sensor" in t for _, t in world.store.journal("home-1"))
+
+
+def test_the_sensor_is_only_asked_during_an_unexpected_visit(world):
+    world.app.state.tick()                                   # nobody at the door
+    world.resident.post("/api/resident/visits", json={
+        "label": "carer", "weekdays": [1], "start": "14:00", "end": "16:00"})
+    world.send("button_press", DOORBELL, 0)                  # the carer, in their window
+    world.clock.now = T0 + seconds(10)
+    world.app.state.tick()
+    assert world.ring.polled == []
+
+
+def test_a_closed_door_asked_about_changes_nothing(world):
+    world.send("button_press", DOORBELL, 0)
+    world.clock.now = T0 + seconds(20)
+    world.app.state.tick()
+    assert world.ring.polled == [SENSOR] and alerts(world, "answered") == []
+
+
+def test_reading_notices_is_rate_limited(world):
+    for _ in range(20):
+        assert world.resident.post("/api/resident/deliveries/read",
+                                   json={"text": "UPS"}).status_code == 200
+    assert world.resident.post("/api/resident/deliveries/read",
+                               json={"text": "UPS"}).status_code == 429
 
 
 def test_visit_closes_on_tick(world):

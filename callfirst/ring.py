@@ -25,6 +25,20 @@ class Ring:
                             json={"event": slot}, headers=self._auth)
         return r.status_code in (200, 204)
 
+    def sensor_open(self, sensor: str) -> bool | None:
+        """The contact sensor's current state: True open, False closed, None unknown.
+
+        Webhooks can be lost. While an unexpected visitor is at the door this is
+        asked every few seconds, so a lost "door opened" still gets through.
+        """
+        try:
+            r = self._http.get(f"{self.base}/v1/devices/{sensor}/status", headers=self._auth)
+            if r.status_code != 200:
+                return None
+            return bool(r.json()["data"]["attributes"]["contact_detection"]["faulted"])
+        except (httpx.HTTPError, KeyError, TypeError, ValueError):
+            return None
+
     def snapshot(self, camera: str, at: datetime) -> bytes | None:
         r = self._http.post(f"{self.base}/v1/devices/{camera}/media/image/download",
                             json={"type": "at_timestamp",

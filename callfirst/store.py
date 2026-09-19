@@ -34,6 +34,34 @@ create table if not exists journal (
 """
 
 
+class _Rows:
+    def __init__(self, rows: list, lastrowid: int | None):
+        self.rows, self.lastrowid = rows, lastrowid
+
+    def fetchone(self):
+        return self.rows[0] if self.rows else None
+
+    def __iter__(self):
+        return iter(self.rows)
+
+
+class _Serialized:
+    """One sqlite3 connection shared by request threads, the tick thread and
+    the action threads. sqlite3 does not make that safe by itself: under load
+    it raised spurious constraint errors and returned half-read rows (found by
+    scripts/chaos.py). Every statement now runs, and is read to the end, under
+    one lock."""
+
+    def __init__(self, connection: sqlite3.Connection):
+        self._connection = connection
+        self._lock = threading.Lock()
+
+    def execute(self, sql: str, params: tuple = ()) -> _Rows:
+        with self._lock:
+            cursor = self._connection.execute(sql, params)
+            return _Rows(cursor.fetchall(), cursor.lastrowid)
+
+
 def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
@@ -44,9 +72,10 @@ class Store:
         # Keyed, so a copy of the database cannot confirm a guessed address.
         self._pepper = hashlib.sha256(b"callfirst-email:" + (key if isinstance(key, bytes)
                                                               else key.encode())).digest()
-        self._db = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
-        self._db.executescript(SCHEMA)
-        self._lock = threading.Lock()
+        connection = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
+        connection.executescript(SCHEMA)
+        self._db = _Serialized(connection)
+        self._lock = threading.RLock()     # groups of statements that belong together
 
     # ------------------------------------------------------------------ households
 
