@@ -62,6 +62,7 @@ function demoPanel(on) {
     class: action === "ring" ? "" : "secondary",
     onclick: async (e) => {
       e.target.disabled = true;
+      $("door-said").textContent = `${label}: sending to the doorbell…`;
       try {
         const r = await api("POST", "/api/demo/door", {action});
         const line = r.chime
