@@ -29,6 +29,25 @@ The resident switches it on and chooses who is told. No faces are recognised,
 no police are called, and a language model decides nothing. The full reasoning
 is in [DESIGN.md](DESIGN.md).
 
+## Readable, measured
+
+The typeface is Atkinson Hyperlegible, drawn by the Braille Institute for readers
+with low vision — the people this protects. That is a choice; `python scripts/a11y.py`
+is the check that the choice survives contact with the stylesheet:
+
+```
+30 colour pairs checked in two themes: all above the WCAG minimum.
+```
+
+Every pair the stylesheet actually puts on screen, in light and dark, against WCAG 2.1
+— 4.5:1 for text, 3:1 for the focus ring. It found a real defect: the focus ring measured
+**1.88:1** against the page, where a keyboard user with low vision needs 3:1 to find it at
+all. The accent is now `#c2620b` and measures 9.73:1.
+
+Card borders are reported and not enforced, on purpose: a card is already told apart by its
+surface colour, its shadow and its padding, so its border is decoration rather than
+information. Darkening eleven borders to satisfy a rule that does not bind would help nobody.
+
 ## Measured, not demonstrated
 
 `python scripts/scenarios.py`:

@@ -1,0 +1,24 @@
+# The demo runs on a free instance that sleeps after fifteen minutes. The first
+# load after a quiet spell takes about forty seconds -- long enough for a judge
+# to close the tab before seeing anything.
+#
+# This pings it every fourteen minutes so it is awake when someone arrives.
+# Deliberately not a background service: a scheduled workflow is visible, has
+# an off switch, and stops with the repository.
+name: keep-awake
+
+on:
+  schedule:
+    - cron: "*/14 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake the demo
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 120 \
+            https://callfirst-bgtj.onrender.com/health)
+          echo "health: $code"
+          test "$code" = "200"
