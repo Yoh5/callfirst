@@ -14,6 +14,14 @@ STATIC = Path(__file__).resolve().parent.parent / "callfirst" / "static"
 PAGES = sorted(STATIC.glob("*.html"))
 SCRIPTS = sorted(STATIC.glob("*.js"))
 
+#: The pages that must exist for this file to be checking anything. A glob
+#: feeding `parametrize` is a quiet way to lose a whole suite: if this
+#: directory is ever moved or renamed, pytest generates zero cases for five
+#: tests -- references resolve, nothing loads from another origin, no inline
+#: script, ids unique, scripts parse -- and the run stays green having checked
+#: none of it. Naming them turns that silence into a failure.
+EXPECTED_PAGES = {"family.html", "index.html", "privacy.html", "resident.html", "try.html"}
+
 
 class Refs(HTMLParser):
     def __init__(self):
@@ -45,6 +53,12 @@ def parse(page: Path) -> Refs:
     refs = Refs()
     refs.feed(page.read_text(encoding="utf-8"))
     return refs
+
+
+def test_the_pages_and_scripts_were_actually_found():
+    """Everything below is parametrized over a glob; this is the glob."""
+    assert EXPECTED_PAGES <= {p.name for p in PAGES}, f"missing pages under {STATIC}"
+    assert SCRIPTS, f"no .js found under {STATIC}"
 
 
 @pytest.mark.parametrize("page", PAGES, ids=lambda p: p.name)
@@ -80,6 +94,10 @@ def test_every_id_a_script_looks_up_exists_on_its_page():
         wanted = set(re.findall(r'\$\("([\w-]+)"\)|getElementById\("([\w-]+)"\)',
                                 (STATIC / script).read_text(encoding="utf-8")))
         wanted = {a or b for a, b in wanted}
+        # The regex is coupled to how the scripts look elements up. Rename the
+        # `$` helper and it quietly matches nothing, leaving `missing` empty
+        # and this test passing without having read a single id.
+        assert wanted, f"found no element lookups in {script}: the pattern no longer matches"
         missing = wanted - set(parse(STATIC / page).ids)
         assert not missing, f"{script} looks up {missing}, absent from {page}"
 
