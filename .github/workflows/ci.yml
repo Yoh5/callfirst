@@ -1,0 +1,43 @@
+# The suite ran on one laptop and nowhere else. Most of what it protects is
+# not a feature but a promise -- the family cannot change the protection, the
+# schedule never reaches them, nothing is readable at rest, the contrast holds
+# for eyes that need it. A promise nobody re-checks on the way in is a promise
+# until the first push that breaks it.
+#
+# No credential is needed. The Ring, the clock and the mailer are all doubles,
+# and anything that reached a real service would make this workflow fail for
+# everyone who forks the repository.
+name: ci
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Node is what `node --check` in tests/test_pages.py uses to parse the
+      # browser scripts. It is skipped when absent, so it must be present
+      # here or that check would quietly stop running.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: python -m pytest -q
+
+      # The contrast gate reports the numbers it measured rather than a bare
+      # pass, so a reader of the log can see which pairs were checked.
+      - name: Contrast
+        run: python scripts/a11y.py
