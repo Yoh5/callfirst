@@ -1,0 +1,360 @@
+From 766ba9c1e34fedd32b2fac0f7037f42398eb52fe Mon Sep 17 00:00:00 2001
+From: Axel AHO <aho.axel5@gmail.com>
+Date: Wed, 30 Sep 2026 23:58:00 +0200
+Subject: [PATCH] Make a seeded chaos run reproducible when deliveries overlap
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+`Chaos` promises that "seed makes the fault stream deterministic so chaos
+runs are reproducible in tests". `test_seeded_fault_streams_are_reproducible`
+checks that two fresh `Chaos.rng()` objects yield the same sequence, which is
+a property of `random.Random` rather than of the emulator; no test covered a
+run.
+
+It does not hold for a run. `inject` and `_fire` both end in
+`asyncio.create_task(deliver(payload))`, so deliveries overlap, and
+`deliver()` awaited `asyncio.sleep(delay)` between two draws from a single
+`rng` shared by every delivery. Which coroutine drew next depended on the
+event loop, so the same seed injected a different number of faults from one
+run to the next as soon as more than one event was in flight.
+
+Found running 20 doors at once against the `delivery` preset: seed 7 gave 8
+drops on one run and 9 on the next.
+
+Every draw for a delivery is now taken before the first await, so the stream
+is consumed in whole per-delivery chunks. Which delivery is dropped still
+depends on the order they start in and cannot not — `meta.request_id` is a
+fresh uuid4, so a delivery has no identity that survives a restart — but the
+counts a measurement rests on are reproducible again. The README says which
+of the two the seed fixes.
+
+Also, because both call sites kept no handle on the tasks they created, a
+consumer had no way to know when the queue had drained. With the `delivery`
+preset a delivery is held up to 1.8 s, so the only recourse was to sleep for
+a guessed number of seconds; on a loaded machine that guess is short, and a
+run reports fewer deliveries than were made. `GET /_sandbox/chaos` now
+reports `pending`, and holding the reference also stops a task being
+collected mid-flight.
+
+README: count faults from `/_sandbox/chaos`, not from `/_sandbox/state`,
+which truncates `delivered` to its last 50 entries and so undercounts
+silently on any run of size.
+
+Verified by mutation: reintroducing one await between the draws fails
+`test_a_seeded_run_is_reproducible_under_concurrent_delivery`.
+
+Nothing here was checked against the real Ring API — it is entirely about the
+emulator's own behaviour.
+---
+ README.md                       |  14 +++
+ src/ring_sandbox/emulator.py    |  62 +++++++++++--
+ tests/test_chaos_concurrency.py | 156 ++++++++++++++++++++++++++++++++
+ 3 files changed, 225 insertions(+), 7 deletions(-)
+ create mode 100644 tests/test_chaos_concurrency.py
+
+diff --git a/README.md b/README.md
+index 5d48eeb..247da69 100644
+--- a/README.md
++++ b/README.md
+@@ -122,6 +122,20 @@ the applied ms). `POST /_sandbox/chaos` adjusts rates live (`{"drop": 0.5}`) wit
+ restarting. The point is proving the *receiver*: a correct consumer dedupes re-delivered
+ `request_id`s, tolerates out-of-order arrival, and keeps working through flaky polls.
+ 
++Two things to know when a batch run counts faults:
++
++- **Count from `/_sandbox/chaos`, not from `/_sandbox/state`.** `/chaos` returns the whole
++  history of actions; `/state` truncates `delivered` to its last 50 entries, so counting
++  faults there undercounts silently on any run of size.
++- **`/_sandbox/chaos` reports `pending`**, the deliveries still in flight. Poll it to zero
++  rather than sleeping: a delivery is held up to `delay_ms + jitter_ms` (1.8 s on the
++  `delivery` preset), so a fixed wait is a guess about someone else's machine, and on a
++  loaded one the run ends while deliveries are still out and reports fewer than were made.
++
++`--chaos-seed N` fixes *how many* faults a run injects, for a given number of deliveries.
++It does not fix *which* delivery gets which: `meta.request_id` is a fresh uuid4, so a
++delivery has no identity that survives a restart, and deliveries run concurrently.
++
+ ## pytest
+ 
+ ```python
+diff --git a/src/ring_sandbox/emulator.py b/src/ring_sandbox/emulator.py
+index d1fd895..a237ff3 100644
+--- a/src/ring_sandbox/emulator.py
++++ b/src/ring_sandbox/emulator.py
+@@ -121,6 +121,15 @@ def create_app(world: World | None = None, chaos: Chaos | None = None) -> FastAP
+     app = FastAPI(title="ring-sandbox", version=__version__, docs_url="/_sandbox/docs")
+     app.state.world = world
+     app.state.chaos = chaos
++    # The deliveries still in flight. Both call sites fired them with
++    # `asyncio.create_task` and kept no handle, so a consumer running a batch
++    # had no way to know when the queue had drained: with the `delivery` preset
++    # each delivery is held up to `delay_ms + jitter_ms` (1.8 s), and the only
++    # recourse was to sleep for a guessed number of seconds. On a loaded
++    # machine that guess is short and the run reports fewer deliveries than
++    # were made — a measurement that moves with the load of the machine rather
++    # than with the code under test.
++    app.state.in_flight = set()
+     rng = chaos.rng() if chaos else None
+ 
+     def _flaky(rate: float) -> JSONResponse | None:
+@@ -210,7 +219,14 @@ def create_app(world: World | None = None, chaos: Chaos | None = None) -> FastAP
+ 
+     def _fire(payload: dict[str, Any]) -> None:
+         if world.webhooks:
+-            asyncio.create_task(deliver(payload))
++            _track(asyncio.create_task(deliver(payload)))
++
++    def _track(task: asyncio.Task[None]) -> None:
++        """Keep a handle so `pending` can be answered, and drop it on the way
++        out. Without the reference the task can also be garbage-collected
++        mid-flight, which is the other reason to hold it."""
++        app.state.in_flight.add(task)
++        task.add_done_callback(app.state.in_flight.discard)
+ 
+     # --------------------------------------------------------- app integrations
+ 
+@@ -535,12 +551,36 @@ def create_app(world: World | None = None, chaos: Chaos | None = None) -> FastAP
+         rid = payload["meta"]["request_id"]
+         async with httpx.AsyncClient(timeout=5.0) as client:
+             for target in list(world.webhooks):
+-                if rng and chaos.drop and rng.random() < chaos.drop:
++                # Every draw for this delivery is taken here, before the first
++                # await. `Chaos` promises that "seed makes the fault stream
++                # deterministic so chaos runs are reproducible in tests", and
++                # that held only while deliveries were serial: `inject` ends in
++                # `asyncio.create_task(deliver(...))`, so several deliveries
++                # run at once, and the `await asyncio.sleep(delay)` below used
++                # to sit BETWEEN two draws from this single shared rng. Which
++                # coroutine drew next then depended on the event loop, and the
++                # same seed gave a different number of drops from one run to
++                # the next.
++                #
++                # Which delivery is dropped still depends on the order they
++                # start in, and cannot not: `meta.request_id` is a fresh uuid4,
++                # so a delivery has no identity that survives a restart. What
++                # is restored is the part a measurement rests on — the same
++                # seed and the same number of deliveries give the same counts,
++                # because the stream is now consumed in whole per-delivery
++                # chunks instead of interleaved ones.
++                if rng:
++                    drop = chaos.drop and rng.random() < chaos.drop
++                    delay = (chaos.delay_ms + rng.randint(0, chaos.jitter_ms)) / 1000
++                    copies = 1 + sum(rng.random() < chaos.duplicate for _ in range(2))
++                else:
++                    drop, delay, copies = False, 0, 1
++
++                if drop:
+                     world.delivered.append(
+                         {"kind": "webhook.dropped", "url": target.url, "request_id": rid}
+                     )
+                     continue
+-                delay = (chaos.delay_ms + rng.randint(0, chaos.jitter_ms)) / 1000 if rng else 0
+                 if delay:
+                     world.delivered.append(
+                         {
+@@ -551,7 +591,6 @@ def create_app(world: World | None = None, chaos: Chaos | None = None) -> FastAP
+                         }
+                     )
+                     await asyncio.sleep(delay)
+-                copies = 1 + sum(rng.random() < chaos.duplicate for _ in range(2)) if rng else 1
+                 for copy in range(copies):
+                     if copy:
+                         world.delivered.append(
+@@ -607,19 +646,28 @@ def create_app(world: World | None = None, chaos: Chaos | None = None) -> FastAP
+             component_ids=dev.components or None,
+         )
+         if body.deliver and world.webhooks:
+-            asyncio.create_task(deliver(payload))
++            _track(asyncio.create_task(deliver(payload)))
+         return {"webhook": payload, "history": rec.to_jsonapi(dev.id) if rec else None}
+ 
+     @app.get("/_sandbox/chaos")
+     async def get_chaos() -> dict[str, Any]:
+-        """Current fault-injection profile, plus what chaos has done so far
+-        (from world.delivered kinds webhook.dropped/.duplicated/.delayed)."""
++        """Current fault-injection profile, what chaos has done so far (from
++        world.delivered kinds webhook.dropped/.duplicated/.delayed), and how
++        many deliveries are still in flight.
++
++        ``actions`` is the whole history, while ``GET /_sandbox/state``
++        truncates ``delivered`` to its last 50 entries — counting faults from
++        ``/state`` undercounts silently on any run of size. Count them here."""
+         actions = [d for d in world.delivered if str(d.get("kind", "")).startswith("webhook.")]
+         return {
+             "profile": None
+             if chaos is None
+             else {k: getattr(chaos, k) for k in Chaos.__dataclass_fields__},
+             "actions": actions,
++            # Poll until this reaches zero instead of sleeping: a batch run
++            # then waits for the queue rather than for a number somebody
++            # guessed about another machine.
++            "pending": len(app.state.in_flight),
+         }
+ 
+     @app.post("/_sandbox/chaos")
+diff --git a/tests/test_chaos_concurrency.py b/tests/test_chaos_concurrency.py
+new file mode 100644
+index 0000000..6678740
+--- /dev/null
++++ b/tests/test_chaos_concurrency.py
+@@ -0,0 +1,156 @@
++"""Seeded chaos under concurrent delivery, and knowing when the queue is empty.
++
++`Chaos` promises that "``seed`` makes the fault stream deterministic so chaos
++runs are reproducible in tests". `test_seeded_fault_streams_are_reproducible`
++checks that two fresh `Chaos.rng()` objects yield the same sequence — which is
++a property of `random.Random`, not of the emulator. Nothing covered a run.
++
++It does not hold for a run, because deliveries are concurrent.
++`POST /_sandbox/events` ends in `asyncio.create_task(deliver(payload))`, and
++`deliver()` awaits `asyncio.sleep(delay)` in the middle, between two draws from
++a single `rng` shared by every delivery. Which coroutine draws next therefore
++depends on the event loop's scheduling, so the same seed produces a different
++fault stream from one run to the next as soon as more than one event is in
++flight.
++
++The second test is the practical consequence for a consumer. Nothing reports
++in-flight deliveries: `create_task` results are not tracked, and the
++`delivery` preset holds each delivery for up to `delay_ms + jitter_ms` (1.8 s).
++A batch run cannot tell when the queue has drained, so it waits a fixed number
++of seconds and hopes. On a loaded machine that guess is short, and the run
++reports fewer deliveries than were made — a measurement that moves with the
++load of the machine rather than with the code under test.
++
++Found while running 20 doors at once against the `delivery` preset: the same
++seed gave 8 drops on one run and 9 on the next, and a batch reported 58 of 60
++receivers notified where a longer wait gave 60.
++"""
++
++import socket
++import threading
++import time
++from collections import Counter
++from concurrent.futures import ThreadPoolExecutor
++from http.server import BaseHTTPRequestHandler, HTTPServer
++
++import httpx
++import uvicorn
++
++from ring_sandbox.emulator import create_app
++from ring_sandbox.world import Chaos, default_world
++
++KEY = "chaos-hmac-key"
++
++
++def _free_port() -> int:
++    with socket.socket() as s:
++        s.bind(("127.0.0.1", 0))
++        return s.getsockname()[1]
++
++
++class _Receiver(BaseHTTPRequestHandler):
++    received: list[bytes] = []
++
++    def do_POST(self):  # noqa: N802
++        n = int(self.headers.get("Content-Length", 0))
++        _Receiver.received.append(self.rfile.read(n))
++        self.send_response(200)
++        self.end_headers()
++
++    def log_message(self, *_):
++        pass
++
++
++def _serve(app, port: int) -> uvicorn.Server:
++    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
++    threading.Thread(target=server.run, daemon=True).start()
++    base = f"http://127.0.0.1:{port}"
++    for _ in range(50):
++        try:
++            httpx.get(base + "/_sandbox/health", timeout=0.5)
++            return server
++        except httpx.HTTPError:
++            time.sleep(0.1)
++    raise RuntimeError("emulator did not start")
++
++
++def _run(seed: int, events: int = 12) -> list[str]:
++    """One chaos run: N events injected at once, and the fault stream it gave."""
++    app = create_app(
++        default_world(), Chaos(seed=seed, drop=0.3, duplicate=0.3, delay_ms=10, jitter_ms=60)
++    )
++    api_port, hook_port = _free_port(), _free_port()
++    _serve(app, api_port)
++    base = f"http://127.0.0.1:{api_port}"
++    _Receiver.received = []
++    hooks = HTTPServer(("127.0.0.1", hook_port), _Receiver)
++    threading.Thread(target=hooks.serve_forever, daemon=True).start()
++    httpx.post(
++        base + "/_sandbox/webhooks",
++        json={"url": f"http://127.0.0.1:{hook_port}/hook", "signing_key": KEY},
++    )
++
++    # At once, which is the point: one at a time would never interleave.
++    with ThreadPoolExecutor(max_workers=events) as pool:
++        list(
++            pool.map(
++                lambda _: httpx.post(base + "/_sandbox/events", json={"type": "motion_detected"}),
++                range(events),
++            )
++        )
++    time.sleep(2)
++
++    actions = httpx.get(base + "/_sandbox/chaos").json()["actions"]
++    hooks.shutdown()
++    # Counts, not identities. `meta.request_id` is a fresh uuid4, so a delivery
++    # has no name that survives a restart and "which one was dropped" cannot be
++    # compared across runs — an earlier version of this test tried, and could
++    # never have passed. How MANY were dropped is the part a measurement rests
++    # on, and it is the part the seed can honestly promise.
++    return Counter(a["kind"] for a in actions)
++
++
++def test_a_seeded_run_is_reproducible_under_concurrent_delivery():
++    """The promise in `Chaos`'s own docstring, applied to a run rather than to
++    `random.Random`."""
++    assert _run(seed=7) == _run(seed=7)
++
++
++def test_the_seed_still_decides_something():
++    """The guard on the guard: a fix that made every seed behave alike would
++    pass the test above and quietly destroy the point of seeding. Several
++    seeds, because two of them landing on the same counts is a coincidence and
++    not a failure."""
++    comptes = [_run(seed=s) for s in (7, 23, 99)]
++
++    assert len({tuple(sorted(c.items())) for c in comptes}) > 1
++
++
++def test_the_queue_says_when_it_is_empty():
++    """So a batch run can wait for the thing itself instead of sleeping for a
++    guessed number of seconds."""
++    app = create_app(default_world(), Chaos(seed=3, delay_ms=200, jitter_ms=400))
++    api_port, hook_port = _free_port(), _free_port()
++    _serve(app, api_port)
++    base = f"http://127.0.0.1:{api_port}"
++    _Receiver.received = []
++    hooks = HTTPServer(("127.0.0.1", hook_port), _Receiver)
++    threading.Thread(target=hooks.serve_forever, daemon=True).start()
++    httpx.post(
++        base + "/_sandbox/webhooks",
++        json={"url": f"http://127.0.0.1:{hook_port}/hook", "signing_key": KEY},
++    )
++
++    for _ in range(6):
++        httpx.post(base + "/_sandbox/events", json={"type": "motion_detected"})
++
++    assert httpx.get(base + "/_sandbox/chaos").json()["pending"] > 0
++
++    for _ in range(60):
++        if httpx.get(base + "/_sandbox/chaos").json()["pending"] == 0:
++            break
++        time.sleep(0.1)
++
++    assert httpx.get(base + "/_sandbox/chaos").json()["pending"] == 0
++    assert len(_Receiver.received) == 6, "nothing was still in flight when it said zero"
++    hooks.shutdown()
+-- 
+2.52.0.windows.1
+
