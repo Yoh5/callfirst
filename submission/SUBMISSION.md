@@ -40,7 +40,7 @@ Track: **Ring**. Images: `cover.png` (1500×1000, 3:2 thumbnail), `cover-wide.pn
 > refused by code reading the text itself; a model may help read it, never decide.
 >
 > Measured: through an emulator dropping, duplicating and delaying webhooks, 60
-> courier visits, 60 families told, no reminder played twice. 146 tests; 32 rules
+> courier visits, 60 families told, no reminder played twice. 150 tests; 32 rules
 > broken on purpose, each caught. The misses are published: a neighbour let in is
 > a false alert, and without a sensor a handover under a minute is missed.
 >
@@ -103,8 +103,8 @@ an MIT emulator we read in full and pinned by hash in its own virtualenv.
   per-family one. Logged in `FRICTION.md`.
 - **Webhooks get lost.** The emulator's chaos mode drops one in ten. A lost "door
   opened" is now recovered by asking the sensor while an unexpected visitor is at
-  the door. A lost doorbell press cannot be: 7 of 60 reminders did not play, and we
-  say so.
+  the door. A lost doorbell press cannot be: 7 or 8 of 60 reminders do not play,
+  and we say so. Every family is told on every run; that one we assert.
 - **Our own bug under load**: one SQLite connection shared by threads returned
   errors. The chaos run found it; every statement is now serialised.
 - **Tests that find leaks**: a test that greps the raw database file found the
@@ -130,10 +130,60 @@ centre that already hands out doorbells.
 
 ---
 
+## When it was built
+
+The rules ask what was done *during* the hackathon when a project already existed.
+Call First did not exist before this one, and the repository's history is the
+evidence rather than a claim:
+
+| | |
+|---|---|
+| First commit | **19 September 2026** — *"Design, agreed before any code"* |
+| Commits | 15, from 19 to 30 September 2026 |
+| Written before the hackathon | nothing |
+
+The order is visible in the log and it is the order we would defend: the design
+document was agreed first, then the webhook receiver and the rules engine, then the
+measurement scripts, then the design and the accessibility check — which found a
+real defect, a focus ring at 1.88:1 against a page where a keyboard user with low
+vision needs 3:1.
+
+The last days went to things that are easy to skip and that we did not:
+
+- the contrast of every colour pair the stylesheet puts on screen, measured rather
+  than asserted (`scripts/a11y.py`);
+- five page checks that were passing without asserting anything;
+- running the suite somewhere other than this laptop;
+- and the chaos harness itself, which printed "families told" without checking it.
+  It waited a fixed six seconds for deliveries still in flight, so on a loaded
+  machine it reported 58 of 60 and exited 0. It now waits until the counts stop
+  moving, and exits non-zero if a single family is not told. A harness whose
+  central number is not asserted will eventually publish a wrong one.
+
+**One thing to confirm on the Devpost page before submitting:** whether the
+hackathon opened on or before 19 September 2026. If it did, every line of this
+project is inside the window and this section is simply the record. If it opened
+later, the same table is still the honest answer, and the work done inside the
+window is the last four items above.
+
+---
+
 ## Built with
 
 python, fastapi, sqlite, ring-partner-api, ring-sandbox, openai, cryptography,
 javascript, html, css
+
+## Two entries, one project
+
+The hackathon carries two mini-challenges of $5,000 each, *AWS Builder* and
+*Open Source*. Call First is eligible for the **Ring track and the Open Source
+mini-challenge with the same work** — tick both on the form.
+
+That decides the one question about the repository. The Ring track accepts a
+private repository; the Open Source mini-challenge does not. So the repository
+goes public at submission, under the MIT licence it already carries — not because
+the main track requires it, but because leaving it private forfeits a second
+$5,000 for nothing.
 
 ## Links to fill in at submission
 

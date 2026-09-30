@@ -84,7 +84,35 @@ def run(homes: int, signing: str, admin: dict, seed: str) -> int:
 
     with ThreadPoolExecutor(max_workers=homes) as pool:
         list(pool.map(visit, doors))
-    time.sleep(6)       # delayed deliveries, and a few sensor checks
+
+    # A fixed six-second sleep was a guess about someone else's machine. Each
+    # webhook can be held up to 1.8 s, dropped ones are recovered by a sensor
+    # question, and the two compound; on a loaded laptop the run ended while
+    # deliveries were still in flight, and the published figure came out 58/60
+    # instead of 60/60. A measurement that moves with the load of the machine
+    # is not a measurement.
+    #
+    # So we wait on the thing itself: keep counting until it stops changing,
+    # and cap it. Quiet twice in a row is the end of the queue.
+    def comptes() -> tuple[int, int]:
+        chimes = re.findall(
+            r"POST /v1/devices/([^/]+)/media/audio/playback HTTP/1.1\" 204",
+            (ROOT / "data" / "chaos" / "ring.log").read_text(errors="replace"),
+        )
+        told = sum(
+            1 for _, s in doors
+            if any(a["reason"] == "answered" for a in s.get("/api/resident").json()["alerts"])
+        )
+        return told, len(set(chimes))
+
+    precedent, calme = comptes(), 0
+    for _ in range(30):           # 30 x 1 s, largement au-delà de 1,8 s par webhook
+        time.sleep(1)
+        actuel = comptes()
+        calme = calme + 1 if actuel == precedent else 0
+        precedent = actuel
+        if calme >= 2:
+            break
 
     # The emulator's /_sandbox/state keeps only the last 50 entries; its chaos
     # log and its HTTP access log keep everything.
@@ -102,7 +130,21 @@ def run(homes: int, signing: str, admin: dict, seed: str) -> int:
           f"{count('webhook.duplicated')}, delayed {count('webhook.delayed')}")
     print(f"  reminders played {len(set(chimes))}/{homes}, played twice {rung_twice}")
     print(f"  families told {told}/{homes}")
-    return 0 if rung_twice == 0 else 1
+
+    # The headline number of the whole submission is "every family was told".
+    # It used to be printed and not checked: 58 out of 60 exited 0, in silence,
+    # and a harness whose central number is not asserted will eventually
+    # publish a wrong one. A missed reminder is a published limitation — a lost
+    # doorbell press cannot be recovered — but a family not told is not.
+    manques = []
+    if rung_twice:
+        manques.append(f"{rung_twice} reminder(s) played twice")
+    if told < homes:
+        manques.append(f"only {told} of {homes} families told")
+    if manques:
+        print("\nFAIL  " + "; ".join(manques))
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

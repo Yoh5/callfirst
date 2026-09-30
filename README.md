@@ -75,18 +75,34 @@ Webhooks get lost, duplicated and delayed. `python scripts/chaos.py 20 <seed>`
 runs the emulator in its `delivery` chaos mode and plays a courier visit at 20
 doors at once. Three seeds (7, 11, 23), 60 visits:
 
-| | |
-|---|---|
-| Webhooks dropped / duplicated / delayed | 21 / 76 / 159 |
-| Families told | **60 / 60** |
-| Reminder played twice | **0** |
-| Reminders played | 53 / 60 |
+| | | |
+|---|---|---|
+| | across the three seeds | varies run to run |
+| Families told | **60 / 60** | no |
+| Reminder played twice | **0** | no |
+| Reminders played | 52–53 / 60 | yes, by one or two |
+| Webhooks dropped / duplicated / delayed | ~24 / ~89 / ~156 | yes |
+
+The first two are the claims. They hold on every run, and the script now
+**exits non-zero** if either breaks — printing a number and not checking it is
+how a harness comes to publish a wrong one.
+
+The other two move. The seed fixes which webhooks chaos picks, not how many
+attempts there are to pick from: a recovery path retries, and the count shifts
+by a unit or two. They are given as ranges rather than as figures nobody else
+will reproduce.
 
 A lost "door opened" webhook is caught by asking the sensor while an unexpected
 visitor is at the door, which is why every family was told. A lost doorbell
-press cannot be recovered: nothing else says someone rang, so 7 reminders did
-not play. This run also found a real bug: one SQLite connection shared by
-threads returned errors under load; every statement is now serialised.
+press cannot be recovered: nothing else says someone rang, so a handful of
+reminders do not play.
+
+Two real defects came out of this run rather than out of reading the code. One
+SQLite connection shared by threads returned errors under load; every statement
+is now serialised. And the harness itself waited a fixed six seconds for
+deliveries still in flight — on a loaded machine the run ended early and
+reported 58 of 60 families told. A measurement that moves with the load of the
+machine is not a measurement; it now waits until the counts stop changing.
 
 ## Security
 
@@ -131,7 +147,7 @@ command.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 146 tests
+.venv/Scripts/python -m pytest              # 150 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```
