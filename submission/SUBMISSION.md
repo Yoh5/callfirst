@@ -179,11 +179,23 @@ The hackathon carries two mini-challenges of $5,000 each, *AWS Builder* and
 *Open Source*. Call First is eligible for the **Ring track and the Open Source
 mini-challenge with the same work** — tick both on the form.
 
-That decides the one question about the repository. The Ring track accepts a
-private repository; the Open Source mini-challenge does not. So the repository
-goes public at submission, under the MIT licence it already carries — not because
-the main track requires it, but because leaving it private forfeits a second
-$5,000 for nothing.
+**Read on 30 September, and it is not what we assumed.** The Open Source
+mini-challenge asks for *"a contribution to an open-source project repository
+during the hackathon window, alongside your primary track submission"* — a
+contribution **beside** the entry, not the entry made public. Making this
+repository public does not, on its own, satisfy it.
+
+There is an obvious and honest route, and it is already half-written. Call First
+runs against [ring-sandbox](https://github.com/josepha-mayo/ring-sandbox) (MIT),
+because Ring publishes no simulator. `FRICTION.md` records what using it taught
+us — the undocumented chime audio slots, the webhook fields the emulator omits.
+That is a pull request or an issue to ring-sandbox, written from a week of real
+use, and the rules say a pull request need not be merged.
+
+The repository question is therefore separate, and simpler than we thought: the
+Ring track accepts a private repository, so going public is a choice about how
+the work is judged, not a requirement. Public and MIT is still the better choice
+for a project whose whole argument is measurement anyone can rerun.
 
 ## Links to fill in at submission
 
