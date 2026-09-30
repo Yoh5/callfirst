@@ -10,6 +10,19 @@ narration first, then the screen to fit it.
 - Browser window 1: Margaret's link. Browser window 2: Sarah's link, narrow like a
   phone (390 px). A terminal with the demo's keyboard.
 - Open `data/demo/mail/` in the file explorer to show the email arriving.
+- **Capture the two terminal runs to files first, and show the files.** Since the
+  chaos harness waits for deliveries still in flight instead of sleeping a fixed
+  six seconds, a run takes a minute or two, and `scripts/mutate.py` runs the whole
+  suite 32 times. Nobody wants to watch that, and dead air costs more than the two
+  shots are worth:
+
+      .venv/Scripts/python scripts/chaos.py 20 7  > submission/chaos.txt
+      .venv/Scripts/python scripts/mutate.py      > submission/mutate.txt
+
+  Checked on 30 September: three seeds, 20 of 20 families told each time, no
+  reminder played twice, and 32/32 mutations caught. Say only those two numbers
+  on camera — the dropped/duplicated counts move from run to run, and a viewer
+  who reruns it and sees different figures remembers that, not the point.
 
 ---
 
