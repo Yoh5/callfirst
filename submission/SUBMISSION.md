@@ -40,7 +40,7 @@ Track: **Ring**. Images: `cover.png` (1500×1000, 3:2 thumbnail), `cover-wide.pn
 > refused by code reading the text itself; a model may help read it, never decide.
 >
 > Measured: through an emulator dropping, duplicating and delaying webhooks, 60
-> courier visits, 60 families told, no reminder played twice. 150 tests; 32 rules
+> courier visits, 60 families told, no reminder played twice. 181 tests; 36 rules
 > broken on purpose, each caught. The misses are published: a neighbour let in is
 > a false alert, and without a sensor a handover under a minute is missed.
 >
@@ -113,7 +113,7 @@ an MIT emulator we read in full and pinned by hash in its own virtualenv.
 ### Accomplishments that we're proud of
 
 Every number is measured: a scenario table in both modes, a chaos run, and a
-mutation run that breaks 32 rules one at a time and checks that a test fails each
+mutation run that breaks 36 rules one at a time and checks that a test fails each
 time. The false alerts and the misses are published next to the successes.
 
 ### What we learned
@@ -139,7 +139,7 @@ evidence rather than a claim:
 | | |
 |---|---|
 | First commit | **19 September 2026** — *"Design, agreed before any code"* |
-| Commits | 15, from 19 to 30 September 2026 |
+| Commits | 19 to 2 October 2026 |
 | Written before the hackathon | nothing |
 
 The order is visible in the log and it is the order we would defend: the design
@@ -159,6 +159,30 @@ The last days went to things that are easy to skip and that we did not:
   machine it reported 58 of 60 and exited 0. It now waits until the counts stop
   moving, and exits non-zero if a single family is not told. A harness whose
   central number is not asserted will eventually publish a wrong one.
+
+On 1 and 2 October, four things, each of which started as a defect we found
+rather than a feature we planned:
+
+- **The window a delivery notice announces is now read.** It used to be left
+  entirely to the resident. Half of that was right: *Tuesday* is hers to
+  settle, because a message pasted three days late means the week after and no
+  parser knows that. The other half was costing her — *6 October, 2 to 6 PM*
+  settles itself, and a form that asks for what it just read is a form people
+  stop filling in. What is unambiguous is filled in; what is not is **offered
+  as a choice, never resolved**. A window makes a visitor expected, so a day
+  guessed wrong is silence on the day it mattered.
+- **A rate limiter that could be bypassed and that leaked.** It keyed on the
+  first `X-Forwarded-For` entry — the half the caller writes — and pruned only
+  the caller. One rotating header defeated the limit and grew the process. Both
+  are now mutations in the harness.
+- **A mutation harness that could sabotage the repository.** It edits
+  production source in place; a run killed between the write and the restore
+  left a mutated file in the tree. It now restores from an exit hook and a
+  signal handler, checks every restore, and says whether a missing pattern
+  means the code moved or a previous run was interrupted.
+- **HSTS and a `Permissions-Policy`** that denies camera, microphone and
+  location — a product about a doorbell camera saying, in a header a browser
+  enforces, that its own pages reach none of them.
 
 **One thing to confirm on the Devpost page before submitting:** whether the
 hackathon opened on or before 19 September 2026. If it did, every line of this

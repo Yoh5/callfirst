@@ -185,7 +185,7 @@ From the [Ring Appstore Permitted Content Policy](https://developer.amazon.com/d
 | No third-party access without the customer's explicit knowledge and consent | The resident names the trusted people and can revoke them |
 | Collect only the data the features need | Events and timings; one still image, only when an alert is sent |
 | An easy way to delete stored data | One action deletes everything held for the household |
-| A privacy policy covering collection, use, sharing, retention | Written before submission |
+| A privacy policy covering collection, use, sharing, retention | Written and served at [/privacy](https://callfirst-bgtj.onrender.com/privacy): who decides, what is collected and why, what is never done, who sees what, how it is kept, how long |
 | No identifying strangers, no tracking individuals | No face recognition, no appearance matching between images |
 
 Ring is currently facing a class action over its own facial recognition

@@ -19,8 +19,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
+from . import when
 from .household import Delivery, iso
 
 TRACKING = {
@@ -73,9 +74,25 @@ def _compact(text: str) -> str:
     return re.sub(r"[\s-]", "", text).upper()
 
 
-def read(text: str) -> Proposal:
-    """Rule-based reader: carrier and tracking number. The window is left to the
-    resident, who knows it better than a regex does."""
+def read(text: str, today: date | None = None) -> Proposal:
+    """Rule-based reader: carrier, tracking number, and the window when the
+    message settles it on its own.
+
+    The window used to be left entirely to the resident, on the grounds that
+    she knows it better than a regex does. Half of that was right and half was
+    costing her: *Tuesday* really is hers to settle, because a message pasted
+    three days late means the week after and no amount of parsing knows that.
+    But *6 October, 2:00 PM to 6:00 PM* settles itself, and making her retype
+    it is how a form teaches people to stop filling it in.
+
+    So `when.lis` reads what is unambiguous and offers the readings otherwise;
+    this fills the fields only for the single-reading case. The alternatives
+    reach the page by another route on purpose — they are an affordance, not a
+    validated field, and `Proposal` is what `validate` is handed.
+
+    ``today`` is the resident's today. Without it the window is not read at
+    all, which keeps every existing caller behaving exactly as before.
+    """
     lowered = text.lower()
     carrier = next((c for c, names in CARRIER_NAMES.items()
                     if any(re.search(rf"\b{re.escape(n)}\b", lowered) for n in names)), None)
@@ -88,7 +105,11 @@ def read(text: str) -> Proposal:
             break
     signature = bool(re.search(r"signature (?:is )?required|requires? (?:a )?signature",
                                lowered))
-    return Proposal(carrier, tracking, signature_required=signature)
+    seule = when.lis(text, today).certain if today else None
+    return Proposal(carrier, tracking,
+                    start=seule.debut if seule else None,
+                    end=seule.fin if seule else None,
+                    signature_required=signature)
 
 
 def validate(text: str, proposal: Proposal, now: datetime) -> Verdict:

@@ -115,10 +115,37 @@ already manipulating them. Four threats, each with tests:
 | A fake "delivery" notice makes the courier look expected (prompt injection) | readers only propose; code refuses collections by the text itself and requires the tracking number to appear in it | `test_deliveries.py` |
 | Forged or replayed webhooks | HMAC over the raw body before parsing, freshness from the signed body, one action per `request_id` | `test_webhooks.py`, `test_app.py` |
 | The schedule leaks | households, alerts and the journal encrypted at rest; one call deletes everything | `test_app.py` |
+| The demo is the open door — anyone can reach it, and each call creates a household | limited per address, with a global cap and expiry behind it | `test_rate_limit.py` |
 
-`python scripts/mutate.py` breaks 32 of these rules one at a time; the suite
-catches all 32. Reading pasted messages with a model is limited to 20 per
+That fifth row was two defects until 2 October, and both were ours. The address
+came from `X-Forwarded-For`, and we read the **first** entry — the half the
+caller writes, so a fresh value on every request and the per-address limit
+never bound. And the log was pruned only for the caller, so every address ever
+seen kept a list for the life of the process: the same rotating request
+bypassed the limit **and** grew the process. The global cap was what actually
+held the line, which is not what a second line of defence is for. We now key on
+the last entry — what our own proxy observed, the only part of that header we
+did not get from the person being limited — and prune every address on every
+call.
+
+Headers are set on every response: a strict CSP with no `unsafe-inline`,
+`frame-ancestors 'none'`, `base-uri 'none'`, `Referrer-Policy: no-referrer`,
+`nosniff`, `no-store`, HSTS, and a `Permissions-Policy` that denies camera,
+microphone and location — a product about a doorbell camera saying, in a header
+a browser enforces, that its own pages reach none of them.
+
+`python scripts/mutate.py` breaks 36 of these rules one at a time; the suite
+catches all 36. Reading pasted messages with a model is limited to 20 per
 household per hour (OWASP LLM10).
+
+**The harness survives its own death.** It edits production source in place, so
+a run killed between the write and the restore would leave a sabotaged file in
+the tree waiting to be committed — which is worse than any bug it was written
+to find. Every original is held from the start and restored from an exit hook
+and a signal handler as well as the `finally`, every restore is read back and
+checked, and a pattern that has gone missing says whether the code moved or a
+previous run was interrupted. Nothing else may run against the working copy
+while it does.
 
 ## Who sees what
 
@@ -147,7 +174,7 @@ command.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 150 tests
+.venv/Scripts/python -m pytest              # 181 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```

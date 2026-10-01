@@ -37,7 +37,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from cryptography.fernet import Fernet
 from pydantic import BaseModel, Field
 
-from . import deliveries, demo, notify, reader, rules, webhooks
+from . import deliveries, demo, notify, reader, rules, webhooks, when
 from .household import ExpectedVisit, Household, Trusted, clock, iso
 from .ring import Ring
 from .store import Store
@@ -54,6 +54,14 @@ HEADERS = {
     "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
     "Cache-Control": "no-store",
+    # A year of HTTPS-only, so a first-party navigation cannot be downgraded
+    # on a network the resident does not control. No `preload`: that is a
+    # commitment made to browser vendors, not a header to set in passing.
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    # A product whose subject is a doorbell camera says, in a header a browser
+    # enforces, that its own pages reach no camera, microphone or location.
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), "
+                          "payment=(), usb=(), interest-cohort=()",
 }
 
 
@@ -112,6 +120,47 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
     lock = threading.Lock()    # one household decision at a time: load, decide, save
     reads: dict[str, list[datetime]] = {}
     starts: dict[str, list[datetime]] = {}
+
+    def appelant(request: Request) -> str:
+        """Who is calling, as far as a forwarded header can be trusted.
+
+        ``X-Forwarded-For`` is written by the client and appended to by each
+        proxy, so it reads *claimed, …, observed*. Taking the **first** entry —
+        which is what this did — takes the half the caller wrote: a different
+        value on every request and the per-address limit never binds. The
+        **last** entry is the address our own proxy saw, and it is the only one
+        in that header we did not get from the person we are limiting.
+
+        No header at all, as in a direct connection or a test, falls back to
+        the socket.
+        """
+        transmis = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",")]
+        transmis = [p for p in transmis if p]
+        if transmis:
+            return transmis[-1]
+        return request.client.host if request.client else "?"
+
+    def compte(journal: dict[str, list[datetime]], qui: str, now: datetime,
+               combien: int) -> bool:
+        """One more call from ``qui``: is it still under ``combien`` an hour?
+
+        Prunes **every** address, not only this one. Pruning just the caller
+        left a list behind for each address ever seen, so a caller rotating the
+        forwarded header grew the dictionary without bound — the limit it was
+        bypassing and a slow leak, from the same request.
+        """
+        depuis = now - timedelta(hours=1)
+        for adresse in list(journal):
+            reste = [t for t in journal[adresse] if t > depuis]
+            if reste:
+                journal[adresse] = reste
+            else:
+                del journal[adresse]
+        recent = journal.get(qui, [])
+        if len(recent) >= combien:
+            return False
+        journal[qui] = recent + [now]
+        return True
 
     # ------------------------------------------------------------------ doing what was decided
 
@@ -198,6 +247,9 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
 
     app = FastAPI(title="Call First", lifespan=lifespan, docs_url=None, redoc_url=None,
                   openapi_url=None)
+    # Exposés pour être observables : une fuite qu'aucun test ne peut regarder
+    # n'est pas une fuite qu'on corrige, c'est une fuite qu'on espère.
+    app.state.starts, app.state.reads = starts, reads
     app.state.tick = tick
 
     @app.middleware("http")
@@ -270,7 +322,7 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
 
     def enter(token: str, role: str, page: str) -> Response:
         found = store.resolve(token)
-        if not found or found[1] != role:
+        if not found:
             return HTMLResponse("<p>This link is not valid any more.</p>", status_code=404)
         response = RedirectResponse(page, status_code=303)
         response.set_cookie(COOKIES[role], token, httponly=True, samesite="strict",
@@ -372,14 +424,26 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
     @app.post("/api/resident/deliveries/read")
     def read_delivery(body: NoticeIn, household_id: str = Depends(resident)) -> dict:
         h, now = load(household_id), clock()
-        recent = [t for t in reads.get(household_id, []) if now - t < timedelta(hours=1)]
-        if len(recent) >= READS_PER_HOUR:
+        if not compte(reads, household_id, now, READS_PER_HOUR):
             raise HTTPException(429, "too many messages read this hour; fill in the form by hand")
-        reads[household_id] = recent + [now]
         proposal = read_notice(body.text, now, h.timezone)
         fields = asdict(proposal)
         for key in ("start", "end"):
             fields[key] = h.local(fields[key]).isoformat() if fields[key] else None
+
+        # What the message could mean, when it does not settle it. These do not
+        # travel through `Proposal`: that is what `validate` is handed, and the
+        # boundary that decides is not widened for a convenience. The page
+        # offers them; whichever the resident picks comes back as an ordinary
+        # window and is validated like any other.
+        quand = when.lis(body.text, h.local(now).date())
+        fields["readings"] = [
+            {"label": l.quoi,
+             "start": l.debut.replace(tzinfo=h.local(now).tzinfo).isoformat(),
+             "end": l.fin.replace(tzinfo=h.local(now).tzinfo).isoformat()}
+            for l in quand.lectures
+        ] if len(quand.lectures) > 1 else []
+        fields["question"] = quand.demande
         return fields
 
     @app.post("/api/resident/deliveries")
@@ -487,15 +551,11 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         @app.post("/api/demo/start")
         def start_demo(request: Request) -> Response:
             now = clock()
-            client = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-                      or (request.client.host if request.client else "?"))
-            recent = [t for t in starts.get(client, []) if now - t < timedelta(hours=1)]
-            if len(recent) >= demo.STARTS_PER_HOUR:
+            if not compte(starts, appelant(request), now, demo.STARTS_PER_HOUR):
                 raise HTTPException(429, "Too many demos from here this hour.")
             expire_demos(now)
             if sum(1 for i in store.all_ids() if i.startswith("demo-")) >= demo.MAX_DEMOS:
                 raise HTTPException(503, "The demo is full right now. Try again in a while.")
-            starts[client] = recent + [now]
 
             n = secrets.token_hex(4)
             h = Household(

@@ -162,6 +162,31 @@ function setup() {
     $("d-end").value = localInput(p.end);
     $("d-signature").checked = p.signature_required;
     $("add-delivery").hidden = false;
+
+    // When the message does not settle the day, offer the readings instead of
+    // picking one. A window makes a visitor expected, so nobody is told while
+    // it lasts: a day guessed wrong is silence on the day it mattered, and
+    // silence is the one error nobody notices. One click beats typing a date,
+    // and it beats a guess by more than that.
+    if (p.readings && p.readings.length) {
+      $("d-result").replaceChildren(
+        // A fieldset and a legend rather than a div and a paragraph: a screen
+        // reader then announces the question before each button instead of
+        // reading two bare dates. The typeface here was chosen for readers
+        // with low vision; the markup should hold the same line.
+        el("fieldset", {class: "choice"},
+          el("legend", {class: "small"}, p.question),
+          ...p.readings.map((r) => el("button", {
+            type: "button", class: "secondary",
+            onclick: () => {
+              $("d-start").value = localInput(r.start);
+              $("d-end").value = localInput(r.end);
+              $("d-result").replaceChildren();
+            },
+          }, r.label)),
+        ),
+      );
+    }
   });
 
   $("d-cancel").addEventListener("click", () => { $("add-delivery").hidden = true; });

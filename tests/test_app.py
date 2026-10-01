@@ -5,6 +5,8 @@ import re
 import sqlite3
 from datetime import timedelta
 
+from zoneinfo import ZoneInfo
+
 import pytest
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
@@ -68,7 +70,12 @@ def world(tmp_path):
     store = Store(tmp_path / "t.db", Fernet.generate_key())
     app = create_app(store, ring, KEY, ADMIN["x-admin-token"], clock=clock, background=False,
                      mailer=mailer, base_url="http://testserver",
-                     read_notice=lambda text, now, tz: read_by_rules(text))
+                     # Le double doit refléter l'appel réel : en production 
+                     # passe la date vécue par le foyer, et sans elle la fenêtre
+                     # n'est jamais lue — une divergence qui rendrait la lecture
+                     # invisible aux tests tout en marchant en vrai.
+                     read_notice=lambda text, now, tz:
+                         read_by_rules(text, now.astimezone(ZoneInfo(tz)).date()))
     admin = TestClient(app)
     r = admin.post("/api/households", headers=ADMIN, json={
         "id": "home-1", "resident": "Margaret", "doorbell": DOORBELL, "chime": CHIME,

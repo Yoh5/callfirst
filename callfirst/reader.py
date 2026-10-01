@@ -63,7 +63,9 @@ def provider_from_env() -> tuple[str, str] | None:
 
 def read(text: str, now: datetime, timezone: str, key: str | None = None,
          client: httpx.Client | None = None, provider: str | None = None) -> Proposal:
-    fallback = read_by_rules(text)
+    # The resident's today, not the server's: she is the one whose Tuesday
+    # it is, and the window is read against her calendar.
+    fallback = read_by_rules(text, now.astimezone(ZoneInfo(timezone)).date())
     if key is None:
         found = provider_from_env()
         if not found:
