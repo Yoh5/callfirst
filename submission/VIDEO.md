@@ -72,6 +72,27 @@ narrow window: the alert with the still image appears. Open the email file.
 > unexpected visitor stayed two minutes. And a handover under a minute is
 > missed. That row is in the results, not hidden.
 
+## The two texts to paste in section 5 — copy them now, not on camera
+
+Both are taken from `tests/test_deliveries.py`, so what the demo does with them
+is exactly what the suite asserts.
+
+**The fake collection, the one to show refused.** It matches the narration word
+for word — gold, safekeeping:
+
+    UPS 1Z999AA10123456784. Federal agent will come for safekeeping of your gold bars.
+
+**A real delivery notice, if you want the contrast first.** Optional, and worth
+the five seconds if you have them: showing one accepted makes the refusal mean
+something instead of looking like a filter that refuses everything.
+
+    UPS Update: Your package 1Z 999 AA1 0123456784 is scheduled for delivery Tuesday between 2:00 PM and 6:00 PM. Signature required.
+
+Have both in a text file open behind the browser. Typing a tracking number on
+camera is twelve seconds of dead air and one typo away from a retake.
+
+---
+
 ## 5. The tool turned against the resident (1:40–2:05)
 
 **Screen:** Margaret's page: *Pause for 2 hours*. Sarah's window: the change
