@@ -1,0 +1,39 @@
+caught  declaration during the heightened week kept quiet
+caught  the caller chooses its own rate-limit key
+caught  rate-limit log pruned only for the caller
+caught  a guessed delivery window
+caught  the first reading taken as the reading
+caught  pause ignored at the door
+caught  dwell threshold
+caught  door opened before the visitor came
+caught  door opened after the visitor left
+caught  expected visitor alerted
+caught  heightened reminder slot
+caught  unbounded pause
+caught  answer after heightened alert swallowed
+caught  out-of-order door event
+caught  no heightened watch
+caught  blind door unreported
+caught  silent visit added today
+caught  removed person not told
+caught  signature not checked
+caught  stale accepted
+caught  replays acted on
+caught  invented tracking number
+caught  collections accepted
+caught  journal in clear
+caught  family can change the protection
+caught  a family token works as a resident cookie
+caught  any household's door playable
+caught  demo starts unbounded
+caught  family link opens the resident page
+caught  alerts readable across households
+caught  emails in clear
+caught  deletion not told
+caught  newcomer told instead of the others
+caught  lost door webhook stays lost
+caught  sensor asked during expected visits
+caught  model reads unbounded
+caught  admin API open
+
+37/37 mutations caught

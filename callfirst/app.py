@@ -322,7 +322,7 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
 
     def enter(token: str, role: str, page: str) -> Response:
         found = store.resolve(token)
-        if not found:
+        if not found or found[1] != role:
             return HTMLResponse("<p>This link is not valid any more.</p>", status_code=404)
         response = RedirectResponse(page, status_code=303)
         response.set_cookie(COOKIES[role], token, httponly=True, samesite="strict",

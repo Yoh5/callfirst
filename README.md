@@ -134,8 +134,8 @@ Headers are set on every response: a strict CSP with no `unsafe-inline`,
 microphone and location — a product about a doorbell camera saying, in a header
 a browser enforces, that its own pages reach none of them.
 
-`python scripts/mutate.py` breaks 36 of these rules one at a time; the suite
-catches all 36. Reading pasted messages with a model is limited to 20 per
+`python scripts/mutate.py` breaks 37 of these rules one at a time; the suite
+catches all 37. Reading pasted messages with a model is limited to 20 per
 household per hour (OWASP LLM10).
 
 **The harness survives its own death.** It edits production source in place, so
@@ -174,7 +174,7 @@ command.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 181 tests
+.venv/Scripts/python -m pytest              # 186 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```

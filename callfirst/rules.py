@@ -226,24 +226,59 @@ def _length(visit: ExpectedVisit) -> timedelta:
     return timedelta(hours=h2 - h1, minutes=m2 - m1)
 
 
+def _se_dit(h: Household, start: datetime | None, now: datetime) -> bool:
+    """Does declaring something for ``start`` have to reach the family?
+
+    Today or tomorrow, always: that is the window a scammer needs, and the
+    reason this product exists.
+
+    **And anything at all during the heightened week.** After an alert the
+    household watches for seven days because couriers come back, and a declared
+    window makes a visitor expected — `alert` returns before anything else.
+    Those two met badly: a delivery declared for day four was announced to
+    nobody *and* silenced the watch over its window, in the exact days the
+    product says it is watching hardest.
+
+    It is reachable by the threat the design names first — the victim coached
+    against their own tool. Someone whose first attempt raised an alert knows
+    the family is watching now, and the cheapest counter is not technical: it
+    is *"declare the delivery so it doesn't bother your daughter."*
+
+    The answer is this product's existing rule rather than a new one. Refusing
+    the declaration would decide for her, which it does not do anywhere else.
+    It tells the family.
+    """
+    if h.heightened(now):
+        return True
+    return bool(start and today_or_tomorrow(start, now))
+
+
+def _depuis_l_alerte(h: Household, now: datetime) -> str:
+    """The half-sentence that turns a notice into a reason to telephone."""
+    return (" This is during the week of closer watch that followed an alert."
+            if h.heightened(now) else "")
+
+
 def add_visit(h: Household, visit: ExpectedVisit, now: datetime) -> list:
     h.visits.append(visit)
     start = next_start(visit, h, now)
-    if start and today_or_tomorrow(start, now):
-        return [_change(h, now, f"A visit was added: {visit.label}, "
-                                f"{h.local(start):%A} {clock(h.local(start))} to "
-                                f"{hhmm(visit.end)}. Visitors in "
-                                "that window will not trigger the reminder.")]
+    if _se_dit(h, start, now):
+        quand = (f"{h.local(start):%A} {clock(h.local(start))} to {hhmm(visit.end)}"
+                 if start else "no upcoming date")
+        return [_change(h, now, f"A visit was added: {visit.label}, {quand}. "
+                                "Visitors in that window will not trigger the "
+                                "reminder." + _depuis_l_alerte(h, now))]
     return [Note(f"visit added: {visit.label}")]
 
 
 def add_delivery(h: Household, delivery: Delivery, now: datetime) -> list:
     h.deliveries.append(delivery)
     start = datetime.fromisoformat(delivery.start)
-    if today_or_tomorrow(start, now):
+    if _se_dit(h, start, now):
         return [_change(h, now, f"A {delivery.carrier} delivery was declared for "
                                 f"{h.local(start):%A} {clock(h.local(start))}. Visitors in that window "
-                                "will not trigger the reminder.")]
+                                "will not trigger the reminder."
+                                + _depuis_l_alerte(h, now))]
     return [Note(f"delivery added: {delivery.carrier}")]
 
 

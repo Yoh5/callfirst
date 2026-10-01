@@ -40,7 +40,7 @@ Track: **Ring**. Images: `cover.png` (1500×1000, 3:2 thumbnail), `cover-wide.pn
 > refused by code reading the text itself; a model may help read it, never decide.
 >
 > Measured: through an emulator dropping, duplicating and delaying webhooks, 60
-> courier visits, 60 families told, no reminder played twice. 181 tests; 36 rules
+> courier visits, 60 families told, no reminder played twice. 186 tests; 37 rules
 > broken on purpose, each caught. The misses are published: a neighbour let in is
 > a false alert, and without a sensor a handover under a minute is missed.
 >
@@ -113,7 +113,7 @@ an MIT emulator we read in full and pinned by hash in its own virtualenv.
 ### Accomplishments that we're proud of
 
 Every number is measured: a scenario table in both modes, a chaos run, and a
-mutation run that breaks 36 rules one at a time and checks that a test fails each
+mutation run that breaks 37 rules one at a time and checks that a test fails each
 time. The false alerts and the misses are published next to the successes.
 
 ### What we learned

@@ -26,6 +26,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MUTATIONS = [
+    # A declared window makes a visitor expected, and the heightened week after
+    # an alert exists because couriers come back. Declaring something for day
+    # four of that week used to tell nobody and silence the watch over its
+    # window -- reachable by the threat the design names first, the victim
+    # coached against their own tool.
+    ("callfirst/rules.py",
+     "    if h.heightened(now):\n        return True",
+     "    if False:\n        return True",
+     "declaration during the heightened week kept quiet"),
     # The demo is the only door a stranger reaches without a link, and each
     # call creates a household. X-Forwarded-For reads *claimed, …, observed*:
     # taking the first entry takes what the caller wrote, so a fresh value on
@@ -68,8 +77,9 @@ MUTATIONS = [
      "no heightened watch"),
     ("callfirst/rules.py", "    if h.doorbell_online or not visit:", "    if True:",
      "blind door unreported"),
-    ("callfirst/rules.py", "    if start and today_or_tomorrow(start, now):", "    if False:",
-     "silent visit added today"),
+    ("callfirst/rules.py",
+     "    return bool(start and today_or_tomorrow(start, now))",
+     "    return False", "silent visit added today"),
     ("callfirst/rules.py", "    alert = _change(h, now, f\"{removed[0].name} will no longer receive alerts.\")\n    h.trusted = [t for t in h.trusted if t.email != email]",
      "    h.trusted = [t for t in h.trusted if t.email != email]\n    alert = _change(h, now, f\"{removed[0].name} will no longer receive alerts.\")",
      "removed person not told"),

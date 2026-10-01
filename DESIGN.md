@@ -171,10 +171,34 @@ get told. And it faces people who are already manipulating the victim.
 
 | Threat | Mitigation |
 |---|---|
-| **a) The victim is coached against their own tool** — "turn your alarm off", "add this afternoon's delivery" | Every change to the protection alerts the trusted people at once. Scammers demand secrecy; this breaks it. |
+| **a) The victim is coached against their own tool** — "turn your alarm off", "add this afternoon's delivery" | Every change to the protection alerts the trusted people at once. Scammers demand secrecy; this breaks it. **During the heightened week after an alert, every declaration is told whatever its date** — see below. |
 | **b) Prompt injection through a fake "delivery" notification** (OWASP LLM01) — a crafted SMS that makes the courier look expected | The model only extracts fields. Code validates carrier and tracking format, and refuses anything that reads as a collection. The model's output is never trusted as a decision. |
 | **c) Forged or replayed webhooks** — to trigger false alerts, or to hide real ones | Verify Ring's HMAC signature on every webhook; reject stale and replayed events. |
 | **d) Exposure of the schedule** — it says when the resident is alone | Encrypted at rest, never shown in an alert, least-privilege Ring scopes, tokens server-side only, family access revocable. |
+
+### The hole threat (a) had, found 2 October
+
+A declared window makes a visitor expected, and `alert` returns before anything
+else when a visit is expected. That is right in general: a parcel the resident
+is waiting for should not alert her daughter.
+
+But declaring something only told the family when the window was **today or
+tomorrow**. Further out it was a silent note. So a delivery declared for day
+four of the heightened week was announced to nobody *and* silenced the watch
+over its window — in the exact days this design says it watches hardest,
+because couriers come back.
+
+It needed no technical attack. Someone whose first attempt raised an alert
+knows the family is watching now, and the cheapest counter is a sentence:
+*"declare the delivery so it doesn't bother your daughter."* That is threat (a)
+exactly, arriving through the one door threat (a) did not cover.
+
+The answer is this design's existing rule rather than a new one. Refusing the
+declaration would decide for the resident, which nothing else here does.
+**During the heightened week, every declaration tells the family, whatever its
+date, and says it is during that week** — because "a delivery was declared" and
+"a delivery was declared in the week after an alert" do not call for the same
+telephone call.
 
 ## 9. Ring's content policy, point by point
 
