@@ -1,11 +1,16 @@
 # Contribution to ring-sandbox — the Open Source mini-challenge
 
-Branch prepared locally: `chaos-reproducible-under-concurrency`, one commit,
-three files. Upstream `josepha-mayo/ring-sandbox` at 0.4.1, its own 58 tests
+**Opened on 1 October 2026:**
+**https://github.com/josepha-mayo/ring-sandbox/pull/10**
+
+That is the link the Devpost form wants for the Open Source mini-challenge.
+
+Base `main` on the upstream repository, three files, +225 / −7, mergeable with
+no conflicts. Upstream `josepha-mayo/ring-sandbox` at 0.4.1; its own 58 tests
 plus the 3 added all pass, `ruff check` and `ruff format --check` clean.
 
-To send it: fork on GitHub, push the branch, open the pull request with the
-text below. The hackathon rules say a pull request need not be merged.
+The hackathon rules say a pull request need not be merged, so this counts as it
+stands. The text below is what was sent, kept for the record.
 
 ---
 

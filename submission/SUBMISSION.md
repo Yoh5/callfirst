@@ -199,6 +199,9 @@ for a project whose whole argument is measurement anyone can rerun.
 
 ## Links to fill in at submission
 
+- **Open Source mini-challenge:** https://github.com/josepha-mayo/ring-sandbox/pull/10
+  (opened 1 October 2026 against the emulator this project runs on — see
+  `ring-sandbox-pr.md`)
 - GitHub repository (public at submission, MIT)
 - YouTube video (public, under 3 minutes)
 - Try it: https://callfirst-bgtj.onrender.com/try (each visitor gets a household and a
