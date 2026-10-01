@@ -53,9 +53,23 @@ narration first, then the screen to fit it.
 
 ## 3. The run, with a door sensor (0:45–1:25)
 
-**Screen:** Margaret's page, protection on. Terminal: press `p`, then `r`.
-Show the terminal line *Chime has played 1 time*. Press `o`. Switch to Sarah's
-narrow window: the alert with the still image appears. Open the email file.
+**Switch the protection on first, on Margaret's page.** A household is created
+with it off — `household.py` says why: *switched on by the resident, never on
+them* — and while it is off `rules.py` returns immediately. Nothing fires: the
+chime reports *played 0 time(s)* and Sarah's page says *Protection is off*. The
+earlier wording here, "Margaret's page, protection on", read as a description
+of the screen when it was the one action to take, and that is how it was found.
+
+Do it **on camera**: the narration opens with *"Margaret switched it on, and
+chose who is told: Sarah"*, so the gesture is already in the script, and it
+shows the consent the product is built on. Sarah then gets a first alert, *Call
+First was switched on* — that is correct, not noise: every change touching the
+protection is told to the family. The door alert lands above it.
+
+**Screen:** Margaret's page. Switch the protection on. Terminal: press `p`,
+then `r`. Show the terminal line *Chime has played 1 time*. Press `o`. Switch
+to Sarah's narrow window: the alert with the still image appears. Open the
+email file.
 
 > Margaret switched it on, and chose who is told: Sarah. Someone Margaret was
 > not expecting rings. Inside, the chime says: before you hand anything over,
