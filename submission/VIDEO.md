@@ -19,10 +19,16 @@ narration first, then the screen to fit it.
       .venv/Scripts/python scripts/chaos.py 20 7  > submission/chaos.txt
       .venv/Scripts/python scripts/mutate.py      > submission/mutate.txt
 
-  Checked on 30 September: three seeds, 20 of 20 families told each time, no
-  reminder played twice, and 32/32 mutations caught. Say only those two numbers
-  on camera — the dropped/duplicated counts move from run to run, and a viewer
-  who reruns it and sees different figures remembers that, not the point.
+  Captured on 1 October into `submission/chaos.txt` and `submission/mutate.txt`.
+
+  **Say only two numbers on camera: every family was told, and no reminder
+  played twice.** Those two hold on every run. Nothing else on that screen does
+  — the capture in the repo happens to show 20 of 20 reminders played and 3
+  webhooks dropped, where runs the day before gave 16 of 20 and 9 dropped. Same
+  seed. The seed fixes which webhooks chaos hits, not how many attempts there
+  are to hit, so a viewer who reruns it and reads out a different figure
+  remembers the discrepancy and not the point. Let the file be a prop; say the
+  invariants.
 
 ---
 

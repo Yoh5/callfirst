@@ -1,0 +1,4 @@
+20 courier visits (60 door events), chaos preset 'delivery', seed 7
+  webhooks dropped 3, duplicated 32, delayed 57
+  reminders played 20/20, played twice 0
+  families told 20/20
