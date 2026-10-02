@@ -31,6 +31,21 @@ from cryptography.fernet import Fernet
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from live import APP, PYTHON, RING, SANDBOX, ROOT, wait  # noqa: E402
 
+# Only the ring plays a reminder: the rules play it when a visit has rung, so
+# motion alone and a door opening never do. Printing "nothing played -- switch
+# the protection on" after a door opening blames the resident for behaviour
+# that is exactly right, and sends whoever is watching looking for a fault that
+# is not there. Each key says what it actually did.
+APRES = {
+    "p": "a person is at the door. The reminder plays when they ring.",
+    "o": "the door opened. The family is told by email, not by the chime — "
+         "look in data/demo/mail/.",
+    "c": "the door closed.",
+    "x": "the doorbell is offline. Margaret's page says so, and the family is told "
+         "if it happens while an unexpected visitor is there.",
+    "n": "the doorbell is back.",
+}
+
 KEYS = {"r": ("button_press", "Front Door", None), "p": ("motion_detected", "Front Door", "human"),
         "o": ("contact_sensor_faulted", "Front Door Sensor", None),
         "c": ("contact_sensor_cleared", "Front Door Sensor", None),
@@ -101,6 +116,9 @@ def main() -> None:
                 avant = set(chimes())
                 ring.post("/_sandbox/events", json={"type": kind, "device_id": devices[device],
                                                     "sub_type": sub})
+                if key in APRES:
+                    print(f"  {kind}. {APRES[key]}")
+                    continue
                 # Wait on the thing itself rather than on a guess about how fast
                 # this machine is, and stop as soon as it happens.
                 nouveau = []
