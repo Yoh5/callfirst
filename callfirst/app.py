@@ -381,6 +381,11 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
             "demo": bool(emulator) and h.id.startswith("demo-"),
             "reminders": [local(h, at) for at in reminders[-5:]][::-1],
             "trusted": [asdict(t) for t in h.trusted],
+            # Not a one-off notice that scrolls away: a standing fact on her
+            # own page. A protection with nobody on the other end still plays
+            # the reminder and still raises alerts; the only thing it cannot
+            # do is the one thing it is for.
+            "nobody_listening": not h.trusted,
             "visits": [asdict(v) | {"index": i} for i, v in enumerate(h.visits)],
             "deliveries": [asdict(d) | {"index": i, "start": local(h, d.start),
                                         "end": local(h, d.end)}

@@ -6,19 +6,29 @@
 working copy while it does — a test suite started alongside reads half-mutated
 files and fails for reasons that have nothing to do with it.
 
-And because it edits production source, it has to survive its own death. The
-`finally` below covers an exception; it does not cover Ctrl-C landing between
-the write and the restore, or the process being killed outright — which is not
-hypothetical, it is how a background run ends when it hits a time limit. A
+And because it edits production source, it has to survive its own death. A
 mutation left behind is a sabotaged file sitting in the working tree waiting to
-be committed, which is a worse outcome than any bug this script was written to
-find. So every original is held from the start, restored from an exit hook and
-from a signal handler as well as from the `finally`, and every restore is read
-back and checked.
+be committed — a worse outcome than any bug this script was written to find.
+
+The first attempt at that was an exit hook and a signal handler. **It was not
+enough, and it was proved not enough the same day**: the process was killed
+outright, no handler ran, and `rules.py` kept an `if False:` until the next test
+run tripped over it. Nothing in the process can be relied on, because `SIGKILL`
+reaches no code.
+
+So the originals go **to disk** first, under `.mutate-restore/`, before a single
+file is touched. That directory surviving is the signal: the next run finds it,
+puts every file back, and says so before doing anything else. The exit hook and
+the signal handler are kept — they make the common cases tidy — but the
+guarantee lives in the filesystem, which is the only thing that outlives the
+process.
+
+Nothing else may run against the working copy while this does.
 """
 from __future__ import annotations
 
 import atexit
+import shutil
 import signal
 import subprocess
 import sys
@@ -26,6 +36,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MUTATIONS = [
+    # The last trusted person can leave. After that the protection is still on,
+    # the reminder still plays, and every alert is addressed to nobody. Not an
+    # attack -- a daughter changes her address -- and nothing said the alarm
+    # was now wired to nothing.
+    ("callfirst/app.py", '            "nobody_listening": not h.trusted,', '',
+     "a protection with nobody on the other end"),
     # A declared window makes a visitor expected, and the heightened week after
     # an alert exists because couriers come back. Declaring something for day
     # four of that week used to tell nobody and silence the watch over its
@@ -80,8 +96,11 @@ MUTATIONS = [
     ("callfirst/rules.py",
      "    return bool(start and today_or_tomorrow(start, now))",
      "    return False", "silent visit added today"),
-    ("callfirst/rules.py", "    alert = _change(h, now, f\"{removed[0].name} will no longer receive alerts.\")\n    h.trusted = [t for t in h.trusted if t.email != email]",
-     "    h.trusted = [t for t in h.trusted if t.email != email]\n    alert = _change(h, now, f\"{removed[0].name} will no longer receive alerts.\")",
+    # Recipients are computed before the removal, so the person leaving is
+    # told too. Swapping the two lines takes that away, silently.
+    ("callfirst/rules.py",
+     "    alert = _change(h, now, texte)\n    h.trusted = [t for t in h.trusted if t.email != email]",
+     "    h.trusted = [t for t in h.trusted if t.email != email]\n    alert = _change(h, now, texte)",
      "removed person not told"),
     ("callfirst/webhooks.py", "    if not verify(key, raw, header):", "    if False:",
      "signature not checked"),
@@ -127,22 +146,87 @@ MUTATIONS = [
 ]
 
 
-def _rendre(intacts: dict[Path, str]) -> None:
-    """Put every file back as it was found. Safe to call more than once."""
+JOURNAL = ROOT / ".mutate-restore"
+
+
+def _rendre(intacts: dict[Path, bytes]) -> None:
+    """Put every file back as it was found, byte for byte.
+
+    Bytes rather than text throughout, because a restore must not interpret
+    anything. Reading as text normalises line endings and writing them back
+    depends on the platform: on Windows the round trip happened to come out
+    right, which is not a property to rely on. A restore that rewrites every
+    line ending turns one changed function into a whole file changed, and the
+    diff that was supposed to show the bug shows nothing but noise.
+    """
     for file, original in intacts.items():
         try:
-            if file.read_text(encoding="utf-8") != original:
-                file.write_text(original, encoding="utf-8")
+            if file.read_bytes() != original:
+                file.write_bytes(original)
         except OSError:
             pass
 
 
-def main() -> int:
-    fichiers = {ROOT / path for path, *_ in MUTATIONS}
-    intacts = {f: f.read_text(encoding="utf-8") for f in fichiers}
+def _repartir_de_zero() -> bool:
+    """Undo whatever a previous run was killed in the middle of.
 
-    # Three ways out, all of them covered. A killed run must not leave a
-    # sabotaged file in the tree.
+    The directory existing at all means a run started and did not finish on
+    its own terms. Restoring from it is unconditional: the alternative is a
+    sabotaged file that nothing will mention again.
+    """
+    if not JOURNAL.is_dir():
+        return False
+    remis = []
+    for sauvegarde in sorted(JOURNAL.glob("*.bak")):
+        cible = ROOT / sauvegarde.stem.replace("__", "/")
+        original = sauvegarde.read_bytes()
+        if cible.exists() and cible.read_bytes() != original:
+            cible.write_bytes(original)
+            remis.append(str(cible.relative_to(ROOT)))
+    print("A previous run was killed before it could put things back."
+          + (f" Restored: {', '.join(remis)}." if remis else " Nothing had changed."))
+    shutil.rmtree(JOURNAL, ignore_errors=True)
+    return True
+
+
+def main() -> int:
+    _repartir_de_zero()
+
+    fichiers = {ROOT / path for path, *_ in MUTATIONS}
+    intacts = {f: f.read_bytes() for f in fichiers}
+
+    # To disk before anything is touched. A handler cannot run after SIGKILL;
+    # a file on disk does not need to.
+    JOURNAL.mkdir(exist_ok=True)
+    for file, original in intacts.items():
+        nom = str(file.relative_to(ROOT)).replace("\\", "/").replace("/", "__")
+        (JOURNAL / f"{nom}.bak").write_bytes(original)
+
+    # Every pattern, checked before a single file is touched. A pattern that
+    # has drifted costs fifteen minutes to discover otherwise — the run has to
+    # reach it — and that happened twice in one day: once because a refactor
+    # moved the code under the mutation, once because a change here stopped
+    # normalising line endings. Both were silent until the end. One second now
+    # beats a quarter of an hour then, and the score at the end is about the
+    # tests rather than about the catalogue.
+    derive = []
+    for path, before, after, name in MUTATIONS:
+        texte = intacts[ROOT / path].decode("utf-8").replace("\r\n", "\n")
+        if texte.count(before) != 1:
+            laisse = after and after in texte
+            derive.append(f"  {name} ({path}): " + (
+                "a previous run left this file mutated" if laisse
+                else f"found {texte.count(before)} times, expected 1"))
+    if derive:
+        print("These mutations no longer match the code they were written for:")
+        print("\n".join(derive))
+        print("\nNothing was run. Point them at the code as it is now, or drop them:")
+        print("a mutation that matches nothing proves nothing, and a catalogue")
+        print("that quietly shrinks is the failure this script exists to prevent.")
+        shutil.rmtree(JOURNAL, ignore_errors=True)
+        return 2
+
+    # The tidy paths, for the cases where code does get to run.
     atexit.register(_rendre, intacts)
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
@@ -154,26 +238,35 @@ def main() -> int:
     for path, before, after, name in MUTATIONS:
         file = ROOT / path
         original = intacts[file]
-        if original.count(before) != 1:
+        # Two views of the same file, and they do different jobs. `texte` is
+        # normalised to "\n" so a pattern written with "\n" matches a file
+        # saved with CRLF — eight patterns stopped matching the moment this
+        # read bytes instead of text, and the harness said so rather than
+        # counting them caught. `original` stays the untouched bytes, because
+        # that is what gets written back.
+        crlf = b"\r\n" in original
+        texte = original.decode("utf-8").replace("\r\n", "\n")
+        if texte.count(before) != 1:
             # Two very different causes behind one symptom, and saying which
             # saves the next person an hour: the code moved under the mutation,
             # or a killed run left this file mutated and nobody noticed.
-            laisse = after and after in original
+            laisse = after and after in texte
             raison = ("a previous run was interrupted and left this file mutated"
                       if laisse else
-                      f"pattern not found once (found {original.count(before)})")
+                      f"pattern not found once (found {texte.count(before)})")
             print(f"??    {name}: {raison}")
             survived.append(name)
             continue
-        file.write_text(original.replace(before, after), encoding="utf-8")
+        mute = texte.replace(before, after)
+        file.write_bytes((mute.replace("\n", "\r\n") if crlf else mute).encode("utf-8"))
         try:
             result = subprocess.run([sys.executable, "-m", "pytest", "-q", "-x", "-p",
                                      "no:warnings", "tests"], cwd=ROOT, capture_output=True)
         finally:
-            file.write_text(original, encoding="utf-8")
+            file.write_bytes(original)
         # Read it back. A restore that silently failed would poison every
         # mutation after it, and the run would still print a tidy score.
-        if file.read_text(encoding="utf-8") != original:
+        if file.read_bytes() != original:
             print(f"\nFAIL  {path} could not be restored. Check it before committing.")
             return 2
         caught = result.returncode != 0
@@ -182,6 +275,7 @@ def main() -> int:
             survived.append(name)
 
     _rendre(intacts)
+    shutil.rmtree(JOURNAL, ignore_errors=True)
     print(f"\n{len(MUTATIONS) - len(survived)}/{len(MUTATIONS)} mutations caught")
     return 1 if survived else 0
 

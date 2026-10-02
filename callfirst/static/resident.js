@@ -28,6 +28,15 @@ function statusCard(s) {
     ];
   }
   if (!s.doorbell_online) { kind = "blind"; text += " The doorbell is offline right now."; }
+  // A switched-on protection with nobody on the other end still plays the
+  // reminder and still raises alerts. The only thing it cannot do is the one
+  // thing it is for, and nothing on this page said so. It sits beside the
+  // offline notice because it is the same kind of fact: the product is
+  // running and cannot do its job.
+  if (s.nobody_listening && s.enabled) {
+    kind = "blind";
+    text += " Nobody is receiving alerts: there is no one left on your list.";
+  }
   card.className = `status ${kind}`;
   card.replaceChildren(el("h1", {}, title), el("p", {}, text), el("div", {class: "row"}, buttons),
     el("p", {class: "small"}, s.enabled

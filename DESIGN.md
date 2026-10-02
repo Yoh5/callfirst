@@ -200,6 +200,28 @@ date, and says it is during that week** — because "a delivery was declared" an
 "a delivery was declared in the week after an alert" do not call for the same
 telephone call.
 
+### A protection with nobody on the other end, found 2 October
+
+The resident names the trusted people, and a trusted person can stop receiving
+alerts — the others are told, and the one leaving is told too, because the
+recipients are computed before the removal. That is sound while there are
+others.
+
+**The last one can leave.** After that the protection is still switched on, the
+chime still plays the reminder, alerts are still raised — and every one of them
+is addressed to nobody. The house is protected in name only, and nothing said
+so.
+
+It takes no attacker, which is why it was worth looking for. A daughter changes
+her address, unsubscribes from the wrong thing, or simply stops. Nobody is
+being manipulated and nobody is lied to; the product simply stops being able to
+do the one thing it exists for, quietly.
+
+Same answer as everywhere else here: it is said, not decided. The alert that
+empties the list says what it empties, and the resident's own page carries it
+as a standing fact beside "the doorbell is offline" — because they are the same
+kind of fact. The system is running and cannot do its job.
+
 ## 9. Ring's content policy, point by point
 
 From the [Ring Appstore Permitted Content Policy](https://developer.amazon.com/docs/ring/content-policy.html):

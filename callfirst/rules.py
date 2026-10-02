@@ -299,6 +299,16 @@ def remove_trusted(h: Household, email: str, now: datetime) -> list:
     removed = [t for t in h.trusted if t.email == email]
     if not removed:
         return []
-    alert = _change(h, now, f"{removed[0].name} will no longer receive alerts.")
+    dernier = len(h.trusted) == 1
+    # "Sarah will no longer receive alerts" and "nobody will receive alerts"
+    # do not call for the same reaction, and the second is the one that leaves
+    # a switched-on alarm wired to nothing. It is not an attack: a daughter
+    # changes her address or simply leaves, and nothing says the house is now
+    # protected in name only.
+    texte = (f"{removed[0].name} will no longer receive alerts."
+             + (" **Nobody is receiving alerts now.** Call First is still on and "
+                "the reminder still plays, but there is no one left to tell. "
+                "Add someone to put that right." if dernier else ""))
+    alert = _change(h, now, texte)
     h.trusted = [t for t in h.trusted if t.email != email]
     return [alert]    # recipients computed before removal: they are told too
