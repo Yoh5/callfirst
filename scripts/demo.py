@@ -73,18 +73,48 @@ def main() -> None:
         family = re.search(r"(http://\S+/f/\S+)", invite.get_body().get_content()).group(1)
         print(f"\nMargaret (resident): {created['resident_link']}")
         print(f"Sarah (family):      {family}\n")
+        print("Open Margaret's link first and press Switch on. Nothing plays and")
+        print("nobody is told while the protection is off — which is the point, and")
+        print("it is also the first thing that looks like a bug.\n")
         print(__doc__.split("then press:")[1].split("Alert emails")[0])
         if "--no-input" in sys.argv:        # drive it from elsewhere; stop with Ctrl+C
             while True:
                 time.sleep(3600)
+        def chimes() -> list[tuple]:
+            """The chime plays the emulator has seen, as comparable keys.
+
+            Two bugs lived in the line this replaces. It counted
+            `/_sandbox/state`, which keeps **the last fifty entries only**: past
+            twenty-odd keypresses the count went *down*, which reads as a
+            product that stopped working. And it read the count in the same
+            breath as posting the event, before the emulator had delivered the
+            webhook and the service had called back — so the first thing anyone
+            sees, including on camera, is "played 0 time(s)".
+            """
+            return [(d.get("device_id"), d.get("event"), d.get("at"))
+                    for d in ring.get("/_sandbox/state").json()["delivered"]
+                    if d.get("kind") == "chime.play"]
+
         while (key := input("> ").strip().lower()) != "q":
             if key in KEYS:
                 kind, device, sub = KEYS[key]
+                avant = set(chimes())
                 ring.post("/_sandbox/events", json={"type": kind, "device_id": devices[device],
                                                     "sub_type": sub})
-                played = [d["event"] for d in ring.get("/_sandbox/state").json()["delivered"]
-                          if d.get("kind") == "chime.play"]
-                print(f"  {kind}. Chime has played {len(played)} time(s).")
+                # Wait on the thing itself rather than on a guess about how fast
+                # this machine is, and stop as soon as it happens.
+                nouveau = []
+                for _ in range(12):
+                    time.sleep(0.25)
+                    nouveau = [c for c in chimes() if c not in avant]
+                    if nouveau:
+                        break
+                if nouveau:
+                    print(f"  {kind}. The reminder played ({nouveau[-1][1]}).")
+                else:
+                    print(f"  {kind}. Nothing played — switch the protection on from "
+                          "Margaret's page, or the visitor is expected, or the reminder "
+                          "already played for this visitor.")
     finally:
         for server in servers:
             server.terminate()
