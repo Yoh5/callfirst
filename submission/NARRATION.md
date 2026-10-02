@@ -159,10 +159,18 @@ Every rule that matters / has been broken on purpose, /
 to prove that its test fails.
 
 > **Deux chiffres, et deux seulement.** Ceux-là tiennent sur chaque exécution.
-> Tous les autres bougent — la capture dans le dépôt montre 20 rappels joués sur
-> 20 et 3 webhooks perdus, là où la veille c'était 16 sur 20 et 9 perdus, à
-> graine identique. Un juré qui relance et lit un autre chiffre retient l'écart,
-> pas le propos.
+> Tous les autres bougent — la capture dans le dépôt montre 54 rappels joués sur
+> 60 et 12 webhooks perdus, là où une autre exécution donnait 52 sur 60 et 29
+> perdus, à graine identique. Un juré qui relance et lit un autre chiffre retient
+> l'écart, pas le propos.
+>
+> **La phrase parlée « sixty courier visits » est devenue vraie le 2 octobre.**
+> Elle était enregistrée alors que l'artefact du dépôt montrait vingt visites
+> (soixante *événements* de porte) : c'est cette contradiction qui a déclenché la
+> remesure à soixante foyers. L'audio n'est pas à refaire — il est maintenant
+> exact. Et si un juré demande la formulation précise : *every family whose
+> doorbell was seen*. Perdre les deux webhooks du portier sur une visite, environ
+> une sur cent, et personne n'est prévenu ; c'est publié et testé.
 >
 > La première phrase a été réécrite : *« Through an emulator dropping one in
 > ten, sixty courier visits »* ne se dit pas. Le sens est le même.
