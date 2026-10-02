@@ -458,6 +458,16 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         # boundary that decides is not widened for a convenience. The page
         # offers them; whichever the resident picks comes back as an ordinary
         # window and is validated like any other.
+        # A message asking someone to collect is refused whatever the window
+        # says, so the reading says it at once. It used to come out of
+        # `validate`, which runs when the delivery is added -- and the form
+        # requires a start and an end, so the browser refused to submit an
+        # empty window before the product could explain anything. The one
+        # refusal that matters most was unreachable through the interface: the
+        # resident would have had to invent a delivery window for a message
+        # that has none, and only then be told it reads as a collection.
+        fields["collection"] = list(deliveries.collecte(body.text))
+
         quand = when.lis(body.text, h.local(now).date())
         fields["readings"] = [
             {"label": l.quoi,

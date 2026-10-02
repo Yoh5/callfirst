@@ -112,9 +112,19 @@ def read(text: str, today: date | None = None) -> Proposal:
                     signature_required=signature)
 
 
+def collecte(text: str) -> tuple[str, ...]:
+    """The words that make a message read as a collection, not a delivery.
+
+    Read at two moments now -- when the message is read, and when a delivery is
+    added -- so it lives in one function. Two enumerations of the same thing
+    drift, and this one decides whether a courier is announced in advance.
+    """
+    return tuple(sorted({m.group(0).lower() for m in COLLECTION.finditer(text)}))
+
+
 def validate(text: str, proposal: Proposal, now: datetime) -> Verdict:
     refusals = []
-    words = sorted({m.group(0).lower() for m in COLLECTION.finditer(text)})
+    words = collecte(text)
     if words:
         refusals.append("this reads as a collection, not a delivery ("
                         + ", ".join(words) + "); nobody legitimate collects from a home")

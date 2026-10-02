@@ -172,6 +172,21 @@ function setup() {
     $("d-signature").checked = p.signature_required;
     $("add-delivery").hidden = false;
 
+    // A message asking someone to collect is refused whatever window it
+    // carries, so say it here and offer nothing to correct. The refusal used
+    // to wait for the "add" button, which the browser never let through: the
+    // window fields are required and a collection message has no window. The
+    // most important refusal in the product was behind a form the resident
+    // could not submit.
+    if (p.collection && p.collection.length) {
+      $("add-delivery").hidden = true;
+      $("d-result").replaceChildren(el("div", {class: "refusals"},
+        el("strong", {}, "Not added:"),
+        el("ul", {}, el("li", {}, `this reads as a collection, not a delivery (${
+          p.collection.join(", ")}); nobody legitimate collects from a home`))));
+      return;
+    }
+
     // When the message does not settle the day, offer the readings instead of
     // picking one. A window makes a visitor expected, so nobody is told while
     // it lasts: a day guessed wrong is silence on the day it mattered, and

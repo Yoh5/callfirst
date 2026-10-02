@@ -310,6 +310,34 @@ harness's own bottleneck, sixty threads asking a single-process emulator to
 accept an event. Neither was the product. Both would have published a wrong
 number, which is exactly how the first one got written.
 
+### The refusal that could not be reached, found 2 October
+
+Walking the shot plan before filming: paste the fake notice — *UPS … Federal
+agent will come for safekeeping of your gold bars* — press **Read it**, then
+**This is right — add it**, and read the refusal on screen.
+
+The refusal never arrived. `validate` runs when a delivery is *added*, and the
+form's *Arrives from* and *Until* fields are `required`. A collection message
+carries no window, so the browser blocked the submission with "please fill out
+this field", and the product never got to speak. To reach the one sentence this
+whole project is about — *nobody legitimate collects from a home* — the resident
+would have had to **invent a delivery window for a message that has none**.
+
+Three hundred tests and a mutation catalogue did not find it, because every one
+of them calls the API. The browser's own validation sits in front of the only
+path a person actually takes, and nothing in the suite goes through it. It took
+reading the shot plan out loud, one click at a time.
+
+So the reading says it at once and offers nothing to correct: there is no
+version of that message which becomes acceptable once a date is typed in. The
+collection words live in one function, `collecte()`, called at the reading and
+inside `validate` — two lists of the same words drift, and this one decides
+whether a courier gets announced in advance. Five tests, including the one that
+says why the earlier arrangement could not work (a collection message has no
+window, so refusing cannot depend on the add step) and the one that says the
+page is not the guard (a direct API call with a window invented by hand is
+still refused).
+
 ## 10. What it deliberately does not do
 
 - **Detect an absence of routine.** A different problem, and another entrant's
