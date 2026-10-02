@@ -364,6 +364,53 @@ before the form in the document, the readings render into it, the collection
 refusal stays below (it has nothing to fill), and both containers are
 `aria-live` — this product's readers do not see small print.
 
+### Three refusals that made the reader deduce, found 2–3 October
+
+Auditing the path a person takes, rather than the one the tests take, because
+that is where the last two findings came from. Three in a row, all the same
+shape:
+
+**A refusal naming two causes names neither.** Adding a trusted person answered
+*"already trusted, or three people already"* for both of its refusals. The two
+call for opposite actions — nothing to do, or remove someone first. They are
+two messages now.
+
+**A visit was removed by its position.** The page re-reads the list every
+twenty seconds; a list that shifted between the render and the click deleted
+whatever had moved into that slot, and the page then said *"Carer was removed"*
+using the label from its own stale view. For a night carer that means the chime
+announces her every night from then on. The button now says what it believes it
+is removing — the label and both times, already on screen — and a mismatch is
+refused with *"this list changed since the page was drawn"*.
+
+**And an installation with no way to send, reporting alerts as delivered.**
+Trying the hosted demo to answer whether *Try it* works — it does, end to end:
+chime, alert, confidence, still image, report sheet. But without `SMTP_HOST`
+the service falls back to `FileMailer`, which writes `.eml` files into its own
+data directory and returns `True`. Right for `scripts/demo.py`, where that
+folder *is* the mailbox. Wrong anywhere deployed: the flag added the day before,
+whose whole purpose is that an alert reaching nobody must not look like one that
+arrived, said nothing about a send that was never possible. It is now the third
+standing fact on the resident's page, beside the doorbell being offline and
+nobody being on the list — and the hosted demo is exempt, because its address is
+`@example.invalid` by design so no stranger is ever mailed.
+
+### What the suite cannot see, and what I did to my own harness
+
+Two hundred and forty-one tests reach none of the three. They call the API; the
+browser's required fields, the twenty-second refresh and the deployment's
+configuration all sit outside it. Reading the shot plan aloud, one click at a
+time, found more in two hours than the suite has in two days. That is not an
+argument against the suite — it is where to look next.
+
+And a mistake of my own, twice in one hour: I edited `app.py` and then ran the
+whole suite **while the mutation harness was running**. The edit was silently
+reverted when the harness restored its snapshot, and the test run tripped over a
+live mutation and reported a failure that was not real — the rate limiter was
+`if False:` at that moment. Both are exactly what the README warns about in its
+own words: *nothing else may run against the working copy while it does*. The
+warning was mine and I did not follow it. There is nothing to fix in the code.
+
 ## 10. What it deliberately does not do
 
 - **Detect an absence of routine.** A different problem, and another entrant's

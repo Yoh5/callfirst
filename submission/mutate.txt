@@ -38,7 +38,9 @@ caught  lost door webhook stays lost
 caught  sensor asked during expected visits
 caught  model reads unbounded
 caught  admin API open
+caught  no way to send, said nothing
+caught  stale row removes the wrong visit
 caught  collection silent at reading
 caught  out-of-order door opening lost
 
-42/42 mutations caught
+44/44 mutations caught

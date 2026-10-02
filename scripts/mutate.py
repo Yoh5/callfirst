@@ -155,6 +155,17 @@ MUTATIONS = [
      "        if False:", "model reads unbounded"),
     ("callfirst/app.py", "        if not admin_token or not hmac.compare_digest(",
      "        if False and not hmac.compare_digest(", "admin API open"),
+    # An installation with no way to send saying so. Silence here means every
+    # alert is reported as delivered because the mailer accepted it.
+    ("callfirst/app.py",
+     '            "mail_goes_nowhere": (isinstance(mailer, notify.FileMailer)',
+     '            "mail_goes_nowhere": (False and isinstance(mailer, notify.FileMailer)',
+     "no way to send, said nothing"),
+    # The check that the row being removed is the row that was drawn. Without
+    # it, a list that shifted deletes whatever moved into that position.
+    ("callfirst/app.py",
+     "            if any(attendu) and attendu != (visite.label, visite.start, visite.end):",
+     "            if False:", "stale row removes the wrong visit"),
     # The collection words, said at the reading. Without them the refusal waits
     # for an "add" the browser will not submit: the window fields are required
     # and a collection message has none.

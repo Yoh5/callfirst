@@ -397,6 +397,20 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
             # the reminder and still raises alerts; the only thing it cannot
             # do is the one thing it is for.
             "nobody_listening": not h.trusted,
+            # Worse than nobody listening: no way to speak at all. Without
+            # SMTP_HOST the service falls back to writing .eml files into its
+            # own data directory, which is right for `scripts/demo.py` -- that
+            # folder *is* the mailbox and the script says to look in it -- and
+            # wrong for anything deployed, where an alert is then reported as
+            # delivered because the mailer accepted it. The flag added
+            # yesterday says whether a send failed; a send that was never
+            # possible failed too, and said nothing.
+            #
+            # The hosted demo is exempt: its trusted address is deliberately
+            # unroutable (`@example.invalid`, so no stranger is ever mailed)
+            # and the demo page says to open Sarah's view instead.
+            "mail_goes_nowhere": (isinstance(mailer, notify.FileMailer)
+                                  and not h.id.startswith("demo-")),
             "visits": [asdict(v) | {"index": i} for i, v in enumerate(h.visits)],
             "deliveries": [asdict(d) | {"index": i, "start": local(h, d.start),
                                         "end": local(h, d.end)}
@@ -435,11 +449,30 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         return change(household_id, lambda h, now: rules.add_visit(h, visit, now))
 
     @app.delete("/api/resident/visits/{index}")
-    def remove_visit(index: int, household_id: str = Depends(resident)) -> dict:
+    def remove_visit(index: int, label: str = "", start: str = "", end: str = "",
+                     household_id: str = Depends(resident)) -> dict:
         # Removing an expected visit only makes the door stricter: no alert.
+        #
+        # But it was removed by position alone, and the page re-reads the list
+        # every twenty seconds. A list that shifted between the render and the
+        # click -- another device, another tab, a daughter helping from her own
+        # copy of the link -- deleted whatever had moved into that slot, and
+        # the page then said "Carer was removed" using the label from its own
+        # stale view. The resident loses the window she wanted to keep and is
+        # told the opposite. For a night carer that means the chime announces
+        # her every night from then on.
+        #
+        # So the caller says what it believes it is removing, and the three
+        # fields it already has on screen are enough. They are optional for
+        # compatibility with an older page; when they are given they decide.
         def apply(h, now):
             if not 0 <= index < len(h.visits):
                 raise HTTPException(404, "no such visit")
+            visite = h.visits[index]
+            attendu = (label, start, end)
+            if any(attendu) and attendu != (visite.label, visite.start, visite.end):
+                raise HTTPException(409, "this list changed since the page was drawn; "
+                                         "look again before removing anything")
             return [rules.Note(f"visit removed: {h.visits.pop(index).label}")]
         return change(household_id, apply)
 
@@ -497,8 +530,16 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         person = Trusted(body.name, body.email.lower())
 
         def apply(h, now):
-            if any(t.email == person.email for t in h.trusted) or len(h.trusted) >= 3:
-                raise HTTPException(409, "already trusted, or three people already")
+            # Two refusals, two different things to do about them, so two
+            # messages. "already trusted, or three people already" made the
+            # reader work out which of the two applied -- the same defect as
+            # "invalid window" and as the chime line that offered three causes
+            # and meant one. The audience for this page reads slowly and is
+            # being hurried by someone on the telephone.
+            if any(t.email == person.email for t in h.trusted):
+                raise HTTPException(409, f"{person.email} is already told about alerts")
+            if len(h.trusted) >= 3:
+                raise HTTPException(409, "three people are already told; remove one first")
             return rules.add_trusted(h, person, now)
         told = change(household_id, apply)
         invite(load(household_id), person, store.grant(household_id, "family", person.email))

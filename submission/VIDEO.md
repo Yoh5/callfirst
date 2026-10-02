@@ -122,7 +122,7 @@ safekeeping*: refused, with the reason.
 ## 6. The numbers (2:05–2:30)
 
 **Screen:** terminal: `scripts/chaos.py` output, then `scripts/mutate.py`
-ending *42/42 mutations caught*.
+ending *44/44 mutations caught*.
 
 > Webhooks get lost. Through an emulator dropping one in ten, sixty courier
 > visits: every family was told, no reminder played twice. Every rule that

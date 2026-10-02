@@ -37,6 +37,13 @@ function statusCard(s) {
     kind = "blind";
     text += " Nobody is receiving alerts: there is no one left on your list.";
   }
+  // Third fact of the same kind, and the worst: the product is running, there
+  // are people on the list, and it has no way to reach them.
+  if (s.mail_goes_nowhere && s.enabled) {
+    kind = "blind";
+    text += " This installation cannot send email: alerts are written to a file"
+          + " on the server and reach nobody. Whoever set it up has to fix that.";
+  }
   card.className = `status ${kind}`;
   card.replaceChildren(el("h1", {}, title), el("p", {}, text), el("div", {class: "row"}, buttons),
     el("p", {class: "small"}, s.enabled
@@ -103,7 +110,13 @@ function render(s) {
   $("visits").replaceChildren(...(s.visits.length ? s.visits.map((v) => el("li", {},
     el("span", {class: "grow"}, el("strong", {}, v.label), " — ",
        v.weekdays.map((d) => DAYS[d]).join(", "), `, ${hhmm(v.start)} to ${hhmm(v.end)}`),
-    el("button", {class: "secondary", onclick: () => run("DELETE", `/api/resident/visits/${v.index}`, null, `${v.label} was removed.`)}, "Remove")))
+    // Say which visit this button believed it was removing. The list is
+    // re-read every twenty seconds; without this, a click on a stale row
+    // removes whatever moved into that position.
+    el("button", {class: "secondary", onclick: () => run("DELETE",
+      `/api/resident/visits/${v.index}?label=${encodeURIComponent(v.label)}`
+      + `&start=${encodeURIComponent(v.start)}&end=${encodeURIComponent(v.end)}`,
+      null, `${v.label} was removed.`)}, "Remove")))
     : [el("li", {class: "empty"}, "None.")]));
 
   $("deliveries").replaceChildren(...(s.deliveries.length ? s.deliveries.map((d) => el("li", {},
