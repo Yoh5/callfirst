@@ -40,13 +40,14 @@ Track: **Ring**. Images: `cover.png` (1500×1000, 3:2 thumbnail), `cover-wide.pn
 > refused by code reading the text itself; a model may help read it, never decide.
 >
 > Measured: through an emulator dropping, duplicating and delaying webhooks, 60
-> courier visits, 60 families told, no reminder played twice. 214 tests; 40 rules
-> broken on purpose, each caught. The misses are published: a neighbour let in is
-> a false alert, and without a sensor a handover under a minute is missed.
+> courier visits, every family whose doorbell was seen told, no reminder played
+> twice. 218 tests; 41 rules broken on purpose, each caught. The misses are
+> published: lose both doorbell webhooks for one visit and nobody is told; a
+> neighbour let in is a false alert; without a sensor a quick handover is missed.
 >
 > No faces recognised, no police called, nothing without the resident's consent.
 
-1,467 characters. Recount after any edit.
+1,541 characters. Recount after any edit.
 
 ---
 
@@ -103,8 +104,17 @@ an MIT emulator we read in full and pinned by hash in its own virtualenv.
   per-family one. Logged in `FRICTION.md`.
 - **Webhooks get lost.** The emulator's chaos mode drops one in ten. A lost "door
   opened" is now recovered by asking the sensor while an unexpected visitor is at
-  the door. A lost doorbell press cannot be: 7 or 8 of 60 reminders do not play,
-  and we say so. Every family is told on every run; that one we assert.
+  the door. A lost doorbell press cannot be: 52 to 56 of 60 reminders play, and we
+  say so.
+- **And the claim we assert had to be narrowed, because a run proved it wrong.**
+  "Every family is told" read 59 of 60, and the silent household had seen
+  nothing: both its doorbell webhooks were dropped, so only the door opening
+  arrived, and a door opening with no visitor known is the resident fetching the
+  post. The claim is now **every family whose doorbell was seen**, asserted by
+  attributing each dropped delivery to its household through the emulator's
+  fault log. Losing one of the two webhooks costs nothing; losing both costs the
+  visit, about one in a hundred, and the Partner API offers no way to ask the
+  doorbell what it saw.
 - **Our own bug under load**: one SQLite connection shared by threads returned
   errors. The chaos run found it; every statement is now serialised.
 - **Tests that find leaks**: a test that greps the raw database file found the
@@ -113,7 +123,7 @@ an MIT emulator we read in full and pinned by hash in its own virtualenv.
 ### Accomplishments that we're proud of
 
 Every number is measured: a scenario table in both modes, a chaos run, and a
-mutation run that breaks 40 rules one at a time and checks that a test fails each
+mutation run that breaks 41 rules one at a time and checks that a test fails each
 time. The false alerts and the misses are published next to the successes.
 
 ### What we learned

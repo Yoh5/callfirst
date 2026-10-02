@@ -155,6 +155,10 @@ MUTATIONS = [
      "        if False:", "model reads unbounded"),
     ("callfirst/app.py", "        if not admin_token or not hmac.compare_digest(",
      "        if False and not hmac.compare_digest(", "admin API open"),
+    # The out-of-order recovery: a door-opening delivered before the ring that
+    # it answered. Without it, the network's delivery order becomes a silence.
+    ("callfirst/rules.py", "        if opened and timedelta(0) <= opened - at <= VISIT_GAP:",
+     "        if False:", "out-of-order door opening lost"),
 ]
 
 

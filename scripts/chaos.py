@@ -19,6 +19,7 @@ import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 from pathlib import Path
 
 import httpx
@@ -56,7 +57,14 @@ def main() -> int:
 
 
 def run(homes: int, signing: str, admin: dict, seed: str) -> int:
-    ring = httpx.Client(base_url=RING, headers={"Authorization": "Bearer sandbox"}, timeout=10)
+    # Thirty seconds, not ten, and the reason is worth writing down: at sixty
+    # homes the run died with `httpx.ReadTimeout` on an event POST. Nothing was
+    # wrong with the product — sixty threads were asking a single-process
+    # emulator to accept an event while it was also delivering webhooks, and
+    # ten seconds was not enough patience for the queue. A harness that falls
+    # over at the scale the submission claims is how a measurement ends up
+    # being quoted at three times its real size.
+    ring = httpx.Client(base_url=RING, headers={"Authorization": "Bearer sandbox"}, timeout=30)
     ring.post("/_sandbox/webhooks", json={"url": f"{APP}/webhooks/ring", "signing_key": signing})
     doors = []
     for n in range(homes):
@@ -73,17 +81,29 @@ def run(homes: int, signing: str, admin: dict, seed: str) -> int:
         session.post("/api/resident/on").raise_for_status()
         doors.append((ids, session))
 
-    def visit(door):
-        ids, _ = door
+    # Which webhook belonged to which home. The emulator's fault log records a
+    # dropped delivery by request_id and nothing else, so without this map a
+    # run can only say "59 of 60 families told" -- not which home, and not
+    # whether the silence was a lost webhook or a rule that declined to fire.
+    # The inject endpoint hands back the payload it built, request_id included.
+    envois: dict[tuple[int, str], str] = {}
+    verrou = Lock()
+
+    def visit(item):
+        n, (ids, _) = item
         for kind, device, sub in (("motion_detected", "doorbell", "human"),
                                   ("button_press", "doorbell", None),
                                   ("contact_sensor_faulted", "contact_sensor", None)):
-            ring.post("/_sandbox/events", json={"type": kind, "device_id": ids[device],
-                                                "sub_type": sub})
+            r = ring.post("/_sandbox/events", json={"type": kind, "device_id": ids[device],
+                                                    "sub_type": sub})
+            rid = (r.json().get("webhook") or {}).get("meta", {}).get("request_id")
+            if rid:
+                with verrou:
+                    envois[(n, kind)] = rid
             time.sleep(2)
 
     with ThreadPoolExecutor(max_workers=homes) as pool:
-        list(pool.map(visit, doors))
+        list(pool.map(visit, list(enumerate(doors))))
 
     # A fixed six-second sleep was a guess about someone else's machine. Each
     # webhook can be held up to 1.8 s, dropped ones are recovered by a sensor
@@ -105,13 +125,19 @@ def run(homes: int, signing: str, admin: dict, seed: str) -> int:
         )
         return told, len(set(chimes))
 
+    # Two quiet seconds were enough at twenty homes and not at sixty: with a
+    # hundred and sixty webhooks each held up to 1.8 s, plus the sensor
+    # questions that recover the dropped ones, the queue goes quiet in the
+    # middle of the run. The first sixty-home measurement read 59 of 60
+    # families told, and the sixtieth was still in flight. Three quiet seconds,
+    # and a minute of patience instead of thirty seconds.
     precedent, calme = comptes(), 0
-    for _ in range(30):           # 30 x 1 s, largement au-delà de 1,8 s par webhook
+    for _ in range(60):
         time.sleep(1)
         actuel = comptes()
         calme = calme + 1 if actuel == precedent else 0
         precedent = actuel
-        if calme >= 2:
+        if calme >= 3:
             break
 
     # The emulator's /_sandbox/state keeps only the last 50 entries; its chaos
@@ -121,28 +147,59 @@ def run(homes: int, signing: str, admin: dict, seed: str) -> int:
     count = lambda kind: sum(1 for a in actions if a.get("kind") == kind)
     log = (ROOT / "data" / "chaos" / "ring.log").read_text(errors="replace")
     chimes = re.findall(r"POST /v1/devices/([^/]+)/media/audio/playback HTTP/1.1\" 204", log)
-    told = sum(1 for _, s in doors
-               if any(a["reason"] == "answered" for a in s.get("/api/resident").json()["alerts"]))
+    # Name the households that were not told. "59 of 60" sends you looking
+    # through sixty logs; "home-37" sends you to the one that matters.
+    muets = [f"home-{n:02d}" for n, (_, s) in enumerate(doors)
+             if not any(a["reason"] == "answered"
+                        for a in s.get("/api/resident").json()["alerts"])]
+    told = homes - len(muets)
     rung_twice = len(chimes) - len(set(chimes))
+
+    # A visit whose motion AND press were both dropped was never seen at all:
+    # the door opening alone raises nothing, deliberately, because a door that
+    # opens with nobody at it is the resident fetching the post. Nothing in the
+    # Partner API lets us ask the doorbell what it saw, so this one is not
+    # recoverable -- and it is the only case where a family is not told.
+    perdus = {a.get("request_id") for a in actions if a.get("kind") == "webhook.dropped"}
+    aveugles = {n for n in range(homes)
+                if envois.get((n, "motion_detected")) in perdus
+                and envois.get((n, "button_press")) in perdus}
 
     print(f"{homes} courier visits ({3 * homes} door events), chaos preset 'delivery', seed {seed}")
     print(f"  webhooks dropped {count('webhook.dropped')}, duplicated "
           f"{count('webhook.duplicated')}, delayed {count('webhook.delayed')}")
     print(f"  reminders played {len(set(chimes))}/{homes}, played twice {rung_twice}")
-    print(f"  families told {told}/{homes}")
+    print(f"  families told {told}/{homes}; "
+          f"visits never seen (both doorbell webhooks dropped) {len(aveugles)}")
 
     # The headline number of the whole submission is "every family was told".
     # It used to be printed and not checked: 58 out of 60 exited 0, in silence,
     # and a harness whose central number is not asserted will eventually
     # publish a wrong one. A missed reminder is a published limitation — a lost
     # doorbell press cannot be recovered — but a family not told is not.
+    # The claim is not "every family, whatever happens" -- that would be a
+    # promise the Partner API cannot keep. It is: every family whose doorbell
+    # was seen. Measured against the emulator's own fault log, so a regression
+    # fails here and a lost pair of webhooks does not.
+    inattendus = [m for m in muets if int(m.removeprefix("home-")) not in aveugles]
     manques = []
     if rung_twice:
         manques.append(f"{rung_twice} reminder(s) played twice")
-    if told < homes:
-        manques.append(f"only {told} of {homes} families told")
+    if inattendus:
+        manques.append("families not told although the doorbell was seen: "
+                       + ", ".join(inattendus))
     if manques:
         print("\nFAIL  " + "; ".join(manques))
+        # And say what the system saw for each silent household. A failure
+        # that reports only a count sends you through sixty logs; this says
+        # whether the home heard a reminder and what alerts it did raise, and
+        # therefore whether a webhook was lost or a rule declined to fire.
+        for nom in inattendus:
+            n = int(nom.removeprefix("home-"))
+            vue = doors[n][1].get("/api/resident").json()
+            raisons = [a["reason"] for a in vue["alerts"]] or ["none"]
+            print(f"  {nom}: reminders {len(vue['reminders'])}, "
+                  f"alerts {', '.join(raisons)}")
         return 1
     return 0
 

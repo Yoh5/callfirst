@@ -277,6 +277,39 @@ Ring is currently facing a class action over its own facial recognition
 ([The Register](https://www.theregister.com/personal-tech/2026/06/03/ring-faces-class-action-over-facial-recognition-feature/5250661)).
 Not identifying anyone is a design choice here, not an omission.
 
+### The claim that was one word too wide, found 2 October
+
+The README said "families told: 60 / 60, does not vary". Re-measuring at sixty
+households before filming, it read **59 of 60**, and the harness was right to
+exit non-zero: this is the one number the whole product is.
+
+The named household had seen nothing at all — `reminders 0, alerts change`.
+Both of its doorbell webhooks had been dropped, the motion and the press, so
+all that ever arrived was the door opening, and `_door_opened` returns at once
+when no visit is in progress. That is deliberate and it has to stay: a door
+that opens with nobody at it is the resident fetching the post, letting the cat
+in, going out to the bins. Alerting on every one of those is how a protection
+gets switched off, and then it protects nobody.
+
+So the defect was in the sentence, not the code. The claim is now **every
+family whose doorbell was seen**, and the harness proves it rather than
+asserting it: each dropped delivery is attributed to its household through the
+emulator's own fault log (the inject endpoint returns the `request_id` it
+built), so a run distinguishes "a rule declined to fire" — a failure — from "we
+never knew anyone was there" — a published limit. Four tests fix the boundary:
+losing **one** of the two webhooks costs nothing, losing both costs the visit,
+about one in a hundred at a drop rate of one in ten. It is not recoverable: the
+Partner API has `sensor_open` for the contact sensor and nothing that asks the
+doorbell what it saw a minute ago. That is the first item of product feedback.
+
+Two harness defects came out of the same hour. The drain condition — wait until
+the counts stop changing — was right at twenty households and too eager at
+sixty, where two quiet seconds is a lull rather than an empty queue; it now
+wants three, and waits a minute. And the client timeout of ten seconds was the
+harness's own bottleneck, sixty threads asking a single-process emulator to
+accept an event. Neither was the product. Both would have published a wrong
+number, which is exactly how the first one got written.
+
 ## 10. What it deliberately does not do
 
 - **Detect an absence of routine.** A different problem, and another entrant's

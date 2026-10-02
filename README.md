@@ -78,14 +78,30 @@ doors at once. Three seeds (7, 11, 23), 60 visits:
 | | | |
 |---|---|---|
 | | across the three seeds | varies run to run |
-| Families told | **60 / 60** | no |
+| Families told, of the visits the doorbell was seen at | **all of them** | no |
 | Reminder played twice | **0** | no |
-| Reminders played | 52–53 / 60 | yes, by one or two |
-| Webhooks dropped / duplicated / delayed | ~24 / ~89 / ~156 | yes |
+| Reminders played | 52–56 / 60 | yes, by a few |
+| Visits never seen (both doorbell webhooks dropped) | 0–1 of 60 | yes |
+| Webhooks dropped / duplicated / delayed | 12–29 / ~90 / ~160 | yes |
 
 The first two are the claims. They hold on every run, and the script now
 **exits non-zero** if either breaks — printing a number and not checking it is
 how a harness comes to publish a wrong one.
+
+**The first row used to read "60 / 60", and that was wrong.** A run read 59 of
+60, and the household it named had seen nothing at all: both of its doorbell
+webhooks, the motion and the press, had been dropped, and a door that opens
+with no visitor known is the resident fetching the post — alerting on that
+would get the product switched off within a week. So the honest claim is not
+"every family, whatever happens"; it is **every family whose doorbell was
+seen**, which is now what the harness asserts, attributing each dropped
+delivery to its household through the emulator's own fault log. At one webhook
+in ten, losing both costs about one visit in a hundred. Nothing in the Partner
+API lets us ask the doorbell what it saw a minute ago — `sensor_open` exists
+for the contact sensor and has no equivalent for motion — so unlike a lost
+door-opening, this one cannot be recovered. It is the first item of product
+feedback to Ring, and four tests pin the boundary: losing **one** of the two
+costs nothing.
 
 The other two move. The seed fixes which webhooks chaos picks, not how many
 attempts there are to pick from: a recovery path retries, and the count shifts
@@ -103,6 +119,15 @@ is now serialised. And the harness itself waited a fixed six seconds for
 deliveries still in flight — on a loaded machine the run ended early and
 reported 58 of 60 families told. A measurement that moves with the load of the
 machine is not a measurement; it now waits until the counts stop changing.
+
+Waiting on the counts was right and still not enough. Two quiet seconds meant
+"the queue is empty" at twenty households and "a lull" at sixty, where a
+hundred and sixty delayed deliveries and the sensor questions that recover the
+dropped ones interleave: the run ended mid-flight and read 59 of 60 again, for
+a completely different reason than the first time. Three quiet seconds, and a
+minute of patience instead of thirty seconds. And the client timeout went from
+ten seconds to thirty, because sixty threads asking a single-process emulator
+to accept an event is the harness's own bottleneck, not the product's.
 
 ## Security
 
@@ -195,7 +220,7 @@ command.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 214 tests
+.venv/Scripts/python -m pytest              # 218 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```
