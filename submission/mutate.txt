@@ -38,5 +38,6 @@ caught  lost door webhook stays lost
 caught  sensor asked during expected visits
 caught  model reads unbounded
 caught  admin API open
+caught  out-of-order door opening lost
 
-40/40 mutations caught
+41/41 mutations caught
