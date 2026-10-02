@@ -1,3 +1,5 @@
+caught  a night window covers nothing
+caught  an alert that reached nobody looks delivered
 caught  a protection with nobody on the other end
 caught  declaration during the heightened week kept quiet
 caught  the caller chooses its own rate-limit key
@@ -37,4 +39,4 @@ caught  sensor asked during expected visits
 caught  model reads unbounded
 caught  admin API open
 
-38/38 mutations caught
+40/40 mutations caught

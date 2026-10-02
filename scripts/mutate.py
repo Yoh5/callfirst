@@ -36,6 +36,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MUTATIONS = [
+    # A window whose end precedes its start runs past midnight -- the night
+    # carer, the one visitor who comes while she is asleep. Reading it as
+    # start <= t < end covers nothing, so the chime announces her carer every
+    # night and the way that ends is the protection switched off.
+    ("callfirst/household.py", "        if heure >= debut:", "        if False:",
+     "a night window covers nothing"),
+    # The whole product reduces to: when the door opens for someone
+    # unexpected, somebody is told. A send can fail, and the journal recorded
+    # it -- where nobody reads. The alert sat in her list looking exactly like
+    # one that arrived, and she was told her daughter was told.
+    ("callfirst/app.py", "                store.mark_delivered(h.id, sent_id, manques or [])",
+     "                pass", "an alert that reached nobody looks delivered"),
     # The last trusted person can leave. After that the protection is still on,
     # the reminder still plays, and every alert is addressed to nobody. Not an
     # attack -- a daughter changes her address -- and nothing said the alarm

@@ -32,8 +32,26 @@ class ExpectedVisit:
     end: str
 
     def covers(self, local: datetime) -> bool:
-        return (local.weekday() in self.weekdays
-                and time.fromisoformat(self.start) <= local.time() < time.fromisoformat(self.end))
+        """Inside the window, in the household's own local time.
+
+        A window whose end is before its start runs past midnight — the night
+        carer, 22:00 to 06:00, which is not an edge case for the people this
+        protects. It used to be read as `22:00 <= t < 06:00`, which no time
+        satisfies, so the window covered nothing and the chime announced her
+        carer every night until she switched the protection off. A form that
+        says yes and means no gets the same outcome as the scam it defends
+        against.
+
+        The weekday is the day the window **opens**: a Tuesday night carer is
+        still the Tuesday visit at one in the morning on Wednesday.
+        """
+        debut, fin = time.fromisoformat(self.start), time.fromisoformat(self.end)
+        heure = local.time()
+        if debut <= fin:
+            return local.weekday() in self.weekdays and debut <= heure < fin
+        if heure >= debut:
+            return local.weekday() in self.weekdays
+        return (local - timedelta(days=1)).weekday() in self.weekdays and heure < fin
 
 
 @dataclass

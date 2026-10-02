@@ -222,6 +222,45 @@ empties the list says what it empties, and the resident's own page carries it
 as a standing fact beside "the doorbell is offline" — because they are the same
 kind of fact. The system is running and cannot do its job.
 
+### An alert that reached nobody, found 2 October
+
+This whole product reduces to one sentence: when the door opens for someone
+unexpected, **somebody is told**. The chime, the declared windows, the
+heightened week — all of it exists to decide whether to send that message.
+
+A send can fail. The journal recorded `alert email FAILED`, which is correct
+and is where that line belongs. But nobody reads the journal. The alert sat in
+the resident's list looking exactly like one that arrived, and she was told her
+daughter had been told.
+
+Writing a failure where nobody reads it is a half-step: it clears the engineer
+and leaves the person exactly where they were. The alert now carries whether it
+reached anyone and who it missed, both pages show it, and it stays on the
+record — somebody will ask, six months later, who was told about that visit,
+and a notification that scrolled away does not answer.
+
+### The night carer could not be declared, found 2 October
+
+Expected visits are recurring local-time windows: the carer, Tuesdays
+10:00–12:00. The endpoint refused any window whose end was not after its start,
+with `invalid window`, and `covers` read the window as `start <= t < end`.
+
+Both are right for a daytime window and wrong for the one that matters most
+here. An older person with a **night carer** — 22:00 to 06:00, the one visitor
+who comes while she is asleep — had no way to declare her. The chime announced
+that carer every night, and the message said only "invalid window": not why,
+not what to do instead.
+
+Nobody is endangered by that, and that is the trap. She is worn down, and the
+way being worn down ends is the protection switched off — threat (a) reached
+with no scammer in it.
+
+A window that ends before it starts is simply one that runs past midnight, so
+it is supported rather than refused, and the weekday is the day the window
+**opens**: a Tuesday night carer is still the Tuesday visit at one on
+Wednesday. A window of zero length is still refused — it expects nobody, and
+accepting it would only look like it worked.
+
 ## 9. Ring's content policy, point by point
 
 From the [Ring Appstore Permitted Content Policy](https://developer.amazon.com/docs/ring/content-policy.html):

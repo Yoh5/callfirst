@@ -104,6 +104,16 @@ function renderAlerts(target, alerts, withReport) {
          a.confidence ? el("span", {class: "pill"}, a.confidence === "strong" ? "sensor" : "inferred") : null),
       a.detail !== `${REASONS[a.reason]}.` ? el("div", {class: "small"}, a.detail) : null,
       a.image ? el("img", {src: `/api/alerts/${a.id}/image`, alt: "The doorbell's still image"}) : null,
+      // An alert that reached nobody looks, in a list, exactly like one that
+      // arrived. The journal already recorded the failure; nobody reads the
+      // journal. It belongs on the alert, and it stays there — somebody will
+      // ask in six months who was told about this visit.
+      a.delivered === false
+        ? el("div", {class: "undelivered"},
+            a.not_delivered && a.not_delivered.length
+              ? `This did not reach ${a.not_delivered.join(", ")}. Call them.`
+              : "This reached nobody. Call them.")
+        : null,
       withReport && a.reason !== "change"
         ? el("div", {class: "actions"}, el("a", {href: `/family/report/${a.id}`}, "Open the report sheet")) : null));
   }

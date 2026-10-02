@@ -166,13 +166,16 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
 
     def mail(h: Household, alert: dict, image: bytes | None, report_id: int | None) -> None:
         if not mailer:
-            return
+            return list(alert["recipients"])
         # One message per person: trusted people do not see each other's addresses.
+        manques = []
         for email in alert["recipients"]:
             message = notify.compose(alert | {"recipients": [email]}, h.resident, h.timezone,
                                      sender, base_url, image, report_id)
             if not mailer.send(message):
                 store.note(h.id, alert["at"], "alert email FAILED")
+                manques.append(email)
+        return manques
 
     def act(h: Household, actions: list, at: str) -> None:
         for action in actions:
@@ -185,7 +188,11 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
                     image = ring.snapshot(h.doorbell, datetime.fromisoformat(action.snapshot_at))
                     body["image"] = base64.b64encode(image).decode() if image else None
                 sent_id = store.send(h.id, action.at, "alert", body)
-                mail(h, body, image, None if action.reason == "change" else sent_id)
+                manques = mail(h, body, image,
+                               None if action.reason == "change" else sent_id)
+                # Back onto the alert, so the answer to "was my daughter told?"
+                # is the alert itself rather than a log line nobody opens.
+                store.mark_delivered(h.id, sent_id, manques or [])
             elif isinstance(action, rules.Note):
                 store.note(h.id, at, action.text)
 
@@ -360,7 +367,11 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
     def alerts_of(h: Household) -> list[dict]:
         return [{"id": s["id"], "reason": s["reason"], "at": local(h, s["at"]),
                  "detail": s["detail"], "confidence": s.get("confidence"),
-                 "image": bool(s.get("image"))}
+                 "image": bool(s.get("image")),
+                 # An alert nobody received looks, in a list, exactly like one
+                 # that arrived. It should not.
+                 "delivered": s.get("delivered", True),
+                 "not_delivered": s.get("not_delivered", [])}
                 for s in reversed(store.sent(h.id)) if s["kind"] == "alert"][:30]
 
     def status(h: Household, now: datetime) -> dict:
@@ -412,8 +423,14 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
 
     @app.post("/api/resident/visits")
     def add_visit(body: VisitIn, household_id: str = Depends(resident)) -> dict:
-        if body.end <= body.start or any(not 0 <= d <= 6 for d in body.weekdays):
-            raise HTTPException(422, "invalid window")
+        # An end before the start is a window that runs past midnight — the
+        # night carer, 22:00 to 06:00 — and this refused it outright with
+        # "invalid window", which told her nothing and left her no way to
+        # declare the one visitor who comes while she is asleep. `covers`
+        # handles it now. Equal ends are still refused: a window of no length
+        # expects nobody, and accepting it would only look like it worked.
+        if body.end == body.start or any(not 0 <= d <= 6 for d in body.weekdays):
+            raise HTTPException(422, "a window needs a start and a different end")
         visit = ExpectedVisit(body.label, sorted(set(body.weekdays)), body.start, body.end)
         return change(household_id, lambda h, now: rules.add_visit(h, visit, now))
 

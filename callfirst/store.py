@@ -138,6 +138,29 @@ class Store:
         return [{"id": id_, "at": at, "kind": kind, **json.loads(self._fernet.decrypt(body))}
                 for id_, at, kind, body in rows]
 
+    def mark_delivered(self, household_id: str, sent_id: int,
+                       manques: list[str]) -> None:
+        """Record, on the alert itself, who it did not reach.
+
+        The alert is written before the send is attempted, which is the right
+        order: a message that crashes the process still leaves a record. But
+        the outcome then has to come back and land on it, or the alert sits in
+        the resident's list looking exactly like one that arrived. The journal
+        already said `alert email FAILED`; nobody reads the journal.
+        """
+        with self._lock:
+            row = self._db.execute(
+                "select body from outbox where household = ? and id = ?",
+                (household_id, sent_id)).fetchone()
+            if not row:
+                return
+            corps = json.loads(self._fernet.decrypt(row[0]))
+            corps["delivered"] = not manques
+            corps["not_delivered"] = manques
+            self._db.execute("update outbox set body = ? where household = ? and id = ?",
+                             (self._fernet.encrypt(json.dumps(corps).encode()),
+                              household_id, sent_id))
+
     def one_sent(self, household_id: str, sent_id: int) -> dict | None:
         """Scoped to the household: an id from another household reads as missing."""
         row = self._db.execute("select id, at, kind, body from outbox where household = ? "

@@ -221,9 +221,11 @@ def next_start(visit: ExpectedVisit, h: Household, now: datetime) -> datetime | 
 
 
 def _length(visit: ExpectedVisit) -> timedelta:
+    """How long the window lasts. A night window runs into the next day."""
     h1, m1 = map(int, visit.start.split(":"))
     h2, m2 = map(int, visit.end.split(":"))
-    return timedelta(hours=h2 - h1, minutes=m2 - m1)
+    duree = timedelta(hours=h2 - h1, minutes=m2 - m1)
+    return duree if duree > timedelta(0) else duree + timedelta(days=1)
 
 
 def _se_dit(h: Household, start: datetime | None, now: datetime) -> bool:

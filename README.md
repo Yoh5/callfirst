@@ -107,17 +107,18 @@ machine is not a measurement; it now waits until the counts stop changing.
 ## Security
 
 The system knows when an older person is alone and it faces people who are
-already manipulating them. Four threats, each with tests:
+already manipulating them. Six threats, each with tests:
 
 | Threat | Defence | Tests |
 |---|---|---|
 | The victim is coached to switch it off | every change that weakens protection today alerts the family; a pause ends by itself after 24 h | `test_rules.py` |
 | A fake "delivery" notice makes the courier look expected (prompt injection) | readers only propose; code refuses collections by the text itself and requires the tracking number to appear in it | `test_deliveries.py` |
 | Forged or replayed webhooks | HMAC over the raw body before parsing, freshness from the signed body, one action per `request_id` | `test_webhooks.py`, `test_app.py` |
+| An alert is raised and the email never arrives | the alert carries whether it reached anyone and who it missed; both pages show it, and it stays on the record | `test_failed_mail.py` |
 | The schedule leaks | households, alerts and the journal encrypted at rest; one call deletes everything — the resident's link and the family's both stop working, and nothing is left in any table | `test_delete_everything.py` |
 | The demo is the open door — anyone can reach it, and each call creates a household | limited per address, with a global cap and expiry behind it | `test_rate_limit.py` |
 
-That fifth row was two defects until 2 October, and both were ours. The address
+The demo row was two defects until 2 October, and both were ours. (Named rather than numbered: a row was inserted above it an hour after that sentence was written, and the ordinal was wrong before anyone read it.) The address
 came from `X-Forwarded-For`, and we read the **first** entry — the half the
 caller writes, so a fresh value on every request and the per-address limit
 never bound. And the log was pruned only for the caller, so every address ever
@@ -134,8 +135,8 @@ Headers are set on every response: a strict CSP with no `unsafe-inline`,
 microphone and location — a product about a doorbell camera saying, in a header
 a browser enforces, that its own pages reach none of them.
 
-`python scripts/mutate.py` breaks 38 of these rules one at a time; the suite
-catches all 38. Reading pasted messages with a model is limited to 20 per
+`python scripts/mutate.py` breaks 40 of these rules one at a time; the suite
+catches all 40. Reading pasted messages with a model is limited to 20 per
 household per hour (OWASP LLM10).
 
 **The harness survives its own death, and that took two tries.** It edits
@@ -194,7 +195,7 @@ command.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 202 tests
+.venv/Scripts/python -m pytest              # 214 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```
