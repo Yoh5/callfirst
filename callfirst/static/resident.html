@@ -41,6 +41,10 @@
                   placeholder="UPS: your package 1Z… arrives Tuesday between 2 and 6 PM."></textarea>
         <div class="row"><button>Read it</button></div>
       </form>
+      <!-- The question about which day comes before the fields it fills. It
+           used to render in #d-result, below them: the first person to try it
+           filled the window by hand and never saw the choice at all. -->
+      <div id="d-choice" aria-live="polite"></div>
       <form id="add-delivery" hidden>
         <p class="small">Check what was read, and correct it if needed.</p>
         <div class="grid2">

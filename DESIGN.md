@@ -338,6 +338,32 @@ window, so refusing cannot depend on the add step) and the one that says the
 page is not the guard (a direct API call with a window invented by hand is
 still refused).
 
+### "Les boutons de quoi ?", found 2 October
+
+The reading offers two days when a notice says *Tuesday* and nothing more, and
+the page puts them one click away. The first person to use it asked which
+buttons I was talking about. He had filled *Arrives from* and *Until* by hand,
+and the declaration email proves it: *a UPS delivery was declared for Friday
+2:00 PM*, from a message that said Tuesday.
+
+Nothing was broken. The endpoint returned both readings, the markup was valid,
+the suite was green. The choice rendered into `#d-result`, which sits **below**
+the form — so the fields it was meant to fill came first, got filled by hand,
+and the question was never seen. The feature worked and was invisible.
+
+That is the third time today in a different costume: the alert whose failure
+went to a journal nobody reads, the refusal behind a form the browser would not
+submit, and now a question printed under its own answer. **Information without
+its taker is not information.** Here the cost is specific: a window guessed
+wrong is silence on the day it mattered, and silence is the one error nobody
+notices.
+
+The question now renders above the form, in its own container, cleared on every
+read. Four tests pin what can be pinned without a browser: the container comes
+before the form in the document, the readings render into it, the collection
+refusal stays below (it has nothing to fill), and both containers are
+`aria-live` — this product's readers do not see small print.
+
 ## 10. What it deliberately does not do
 
 - **Detect an absence of routine.** A different problem, and another entrant's

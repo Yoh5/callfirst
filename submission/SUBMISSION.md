@@ -41,7 +41,7 @@ Track: **Ring**. Images: `cover.png` (1500×1000, 3:2 thumbnail), `cover-wide.pn
 >
 > Measured: through an emulator dropping, duplicating and delaying webhooks, 60
 > courier visits, every family whose doorbell was seen told, no reminder played
-> twice. 223 tests; 42 rules broken on purpose, each caught. The misses are
+> twice. 227 tests; 42 rules broken on purpose, each caught. The misses are
 > published: lose both doorbell webhooks for one visit and nobody is told; a
 > neighbour let in is a false alert; without a sensor a quick handover is missed.
 >

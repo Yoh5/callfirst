@@ -164,6 +164,7 @@ function setup() {
   $("read-delivery").addEventListener("submit", async (e) => {
     e.preventDefault();
     $("d-result").replaceChildren();
+    $("d-choice").replaceChildren();
     const p = await api("POST", "/api/resident/deliveries/read", {text: $("d-text").value});
     $("d-carrier").value = p.carrier || "";
     $("d-tracking").value = p.tracking || "";
@@ -193,7 +194,7 @@ function setup() {
     // silence is the one error nobody notices. One click beats typing a date,
     // and it beats a guess by more than that.
     if (p.readings && p.readings.length) {
-      $("d-result").replaceChildren(
+      $("d-choice").replaceChildren(
         // A fieldset and a legend rather than a div and a paragraph: a screen
         // reader then announces the question before each button instead of
         // reading two bare dates. The typeface here was chosen for readers
@@ -205,7 +206,7 @@ function setup() {
             onclick: () => {
               $("d-start").value = localInput(r.start);
               $("d-end").value = localInput(r.end);
-              $("d-result").replaceChildren();
+              $("d-choice").replaceChildren();
             },
           }, r.label)),
         ),
