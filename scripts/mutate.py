@@ -159,6 +159,17 @@ MUTATIONS = [
      "        if False:", "model reads unbounded"),
     ("callfirst/app.py", "        if not admin_token or not hmac.compare_digest(",
      "        if False and not hmac.compare_digest(", "admin API open"),
+    # The signed report link. Without the comparison the key stops being a
+    # key: any value opens the sheet of any alert.
+    ("callfirst/app.py",
+     "                if hmac.compare_digest(k, store.report_key(household_id, sent_id, email)):",
+     "                if True:", "report link key not checked"),
+    # Non-ASCII in the key: hmac.compare_digest raises, so dropping the guard
+    # turns `?k=e` + a combining accent into a 500 anyone can produce.
+    ("callfirst/app.py",
+     "        trouve = store.one_sent_by_id(sent_id) if k and k.isascii() else None",
+     "        trouve = store.one_sent_by_id(sent_id) if k else None",
+     "non-ASCII key crashes the report"),
     # The family page's one instruction, chosen by the server. Without the
     # reason filter it becomes "the newest alert", which is what hid "Call now"
     # behind the pause a scammer asks for a minute later.

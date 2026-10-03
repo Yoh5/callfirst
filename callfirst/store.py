@@ -6,6 +6,7 @@ the key lives in the environment, never in the database or the repository.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -72,6 +73,12 @@ class Store:
         # Keyed, so a copy of the database cannot confirm a guessed address.
         self._pepper = hashlib.sha256(b"callfirst-email:" + (key if isinstance(key, bytes)
                                                               else key.encode())).digest()
+        # A second keyed secret, for the one link that has to work without a
+        # session: the report sheet in an alert email. Separate from the e-mail
+        # pepper, so that neither can be made to answer the other's question.
+        self._link_pepper = hashlib.sha256(
+            b"callfirst-report-link:" + (key if isinstance(key, bytes) else key.encode())
+        ).digest()
         connection = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
         connection.executescript(SCHEMA)
         self._db = _Serialized(connection)
@@ -191,6 +198,40 @@ class Store:
                              (_hash(token), household_id, role, self._email_key(email),
                               self._fernet.encrypt(email.encode()) if email else None))
         return token
+
+    def report_key(self, household_id: str, sent_id: int, email: str) -> str:
+        """An unguessable key for one alert and one recipient, stored nowhere.
+
+        The alert email's only link went to `/family/report/{id}`, which needs
+        a session. The daughter opens the invitation on her laptop and reads
+        the alert on her phone, where that cookie has never existed: the one
+        artifact the submission calls printable answered "open the link you
+        were sent", on the device the alert arrived on.
+
+        A key derived from the household, the alert and the address. Nothing is
+        stored, so there is nothing extra to leak and nothing to clean up; it
+        opens that one report and no other page; and it dies with the key, not
+        with a session. The access tokens cannot serve here -- `grant()`
+        revokes the previous one, so putting a fresh link in every alert would
+        log her out of the page she may have open.
+        """
+        mac = hmac.new(self._link_pepper,
+                       f"{household_id}:{sent_id}:{email.lower()}".encode(),
+                       hashlib.sha256).digest()
+        return base64.urlsafe_b64encode(mac[:16]).decode().rstrip("=")
+
+    def one_sent_by_id(self, sent_id: int) -> tuple[str, dict] | None:
+        """The alert with this id, and the household it belongs to.
+
+        `id` is `integer primary key autoincrement`, so it is unique across
+        households: a link needs to carry nothing but the number, and the
+        household never appears in an email's URL.
+        """
+        row = self._db.execute("select household, kind, body from outbox where id = ?",
+                               (sent_id,)).fetchone()
+        if not row or row[1] != "alert":
+            return None
+        return row[0], json.loads(self._fernet.decrypt(row[2])) | {"id": sent_id}
 
     def resolve(self, token: str) -> tuple[str, str, str | None] | None:
         row = self._db.execute("select household, role, email from access where token_hash = ?",

@@ -464,6 +464,37 @@ it sat in the part a person touches rather than the part the API exposes. The
 pattern is stable enough now to state as a rule: **the suite proves the rules;
 only walking the screens proves the product.**
 
+### The printable sheet that would not open on her phone, found 3 October
+
+The alert email carries one link: the report sheet, which this document and the
+submission both call printable and ready for IC3 and the FTC. It pointed at
+`/family/report/{id}`, which needs a session.
+
+Picture how it is read. The invitation arrives once and is opened on a laptop,
+which is where the cookie lives. The alert arrives at three in the afternoon
+and is read on a phone. She taps the link and the product says *"open the link
+you were sent"* — on the device the alert came to, about the incident it came
+about. A recovery exists, scrolling back to the invitation email, and it is the
+worst moment to ask for it.
+
+The email now carries a key of its own: HMAC over the household, the alert and
+her address, with a pepper separate from the one that keys stored addresses.
+Stored nowhere, so there is nothing extra to leak; it opens that one report and
+no other page; and the access tokens could not have served, because `grant()`
+revokes the previous one — a fresh link in every alert would log her out of the
+page she may have open.
+
+Nine tests, and six of them are about what the key must not become: no key, a
+wrong key, a key altered by one character, another alert's key, a key used
+against the resident's and the family's API, and a change alert inventing a
+link it has no sheet for.
+
+One of those tests found a second defect while being written.
+`hmac.compare_digest` raises `TypeError` on a string containing non-ASCII
+characters, so `?k=éclair` was a 500 that any passer-by could produce. The key
+is base64url; anything else is refused before the comparison, like no key at
+all.
+
 ## 10. What it deliberately does not do
 
 - **Detect an absence of routine.** A different problem, and another entrant's

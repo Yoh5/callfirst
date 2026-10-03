@@ -179,8 +179,12 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         # One message per person: trusted people do not see each other's addresses.
         manques = []
         for email in alert["recipients"]:
-            message = notify.compose(alert | {"recipients": [email]}, h.resident, h.timezone,
-                                     sender, base_url, image, report_id)
+            message = notify.compose(
+                alert | {"recipients": [email]}, h.resident, h.timezone, sender, base_url,
+                image, report_id,
+                # Her own key for this one report, so the link works on the
+                # phone the alert arrived on.
+                store.report_key(h.id, report_id, email) if report_id else None)
             if not mailer.send(message):
                 store.note(h.id, alert["at"], "alert email FAILED")
                 manques.append(email)
@@ -610,9 +614,30 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
         return Response(image, media_type=f"image/{notify.image_type(image)}")
 
     @app.get("/family/report/{sent_id}", response_class=HTMLResponse)
-    def report(sent_id: int, held=Depends(any_session)) -> str:
-        household_id, found = sent_or_404(held, sent_id)
-        return report_sheet(load(household_id), found)
+    def report(sent_id: int, request: Request, k: str = "") -> str:
+        held = sessions(request)
+        if held:
+            household_id, found = sent_or_404(held, sent_id)
+            return report_sheet(load(household_id), found)
+
+        # No session, so this is the link from the alert email, opened on a
+        # device that never saw the invitation -- which is the ordinary case,
+        # not the exception: the invitation goes to a laptop and the alert is
+        # read on a phone. The key is checked against every recipient of that
+        # one alert; they all received the same sheet, so any of their keys
+        # opens it, and nothing else.
+        # `k.isascii()` before anything else: `hmac.compare_digest` raises
+        # TypeError on a string with non-ASCII characters, so `?k=é` would have
+        # been a 500 that any passer-by could produce. The key is base64url;
+        # anything else is simply wrong, and a wrong key gets the same refusal
+        # as none at all.
+        trouve = store.one_sent_by_id(sent_id) if k and k.isascii() else None
+        if trouve:
+            household_id, found = trouve
+            for email in found.get("recipients", []):
+                if hmac.compare_digest(k, store.report_key(household_id, sent_id, email)):
+                    return report_sheet(load(household_id), found)
+        raise HTTPException(401, "open the link you were sent")
 
     # ------------------------------------------------------------------ the hosted demo
 

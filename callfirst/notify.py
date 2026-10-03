@@ -44,7 +44,8 @@ def image_type(data: bytes) -> str:
 
 
 def compose(alert: dict, resident: str, timezone: str, sender: str, base_url: str,
-            image: bytes | None = None, report_id: int | None = None) -> EmailMessage:
+            image: bytes | None = None, report_id: int | None = None,
+            report_key: str | None = None) -> EmailMessage:
     at = datetime.fromisoformat(alert["at"]).astimezone(ZoneInfo(timezone))
     reason = alert["reason"]
     lines = [
@@ -56,8 +57,12 @@ def compose(alert: dict, resident: str, timezone: str, sender: str, base_url: st
         lines += ["", CONFIDENCE[alert["confidence"]]]
     lines += ["", ACTION[reason].format(name=resident)]
     if report_id is not None:
-        lines += ["", f"Report sheet, ready for the FBI (ic3.gov) and the FTC: "
-                      f"{base_url}/family/report/{report_id}"]
+        # The key, when there is one, so the link opens on the phone the alert
+        # arrived on rather than only in the browser that opened the invitation.
+        lien = f"{base_url}/family/report/{report_id}"
+        if report_key:
+            lien += f"?k={report_key}"
+        lines += ["", f"Report sheet, ready for the FBI (ic3.gov) and the FTC: {lien}"]
     lines += ["", f"-- Call First. You receive this because {resident} named you as a trusted "
                   "person. You can stop at any time from your page."]
 
