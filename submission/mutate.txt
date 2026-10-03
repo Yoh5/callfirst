@@ -38,10 +38,11 @@ caught  lost door webhook stays lost
 caught  sensor asked during expected visits
 caught  model reads unbounded
 caught  admin API open
+caught  what to do = the newest alert
 caught  an alert addressed to nobody says it arrived
 caught  no way to send, said nothing
 caught  stale row removes the wrong visit
 caught  collection silent at reading
 caught  out-of-order door opening lost
 
-45/45 mutations caught
+46/46 mutations caught
