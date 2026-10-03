@@ -441,6 +441,29 @@ the resident has no address in this product, so when the last trusted person
 goes, the only email reaches the person who just left. She learns it from the
 standing line on her own page, which is why that line had to exist.
 
+### The instruction that vanished a minute after it was needed, found 3 October
+
+The family page shows one block above everything else — *What to do now* — with
+the call to make and the report sheet. It took `alerts[0]`: the most recent
+alert, whatever it was.
+
+Read threat (c)'s own sequence in order. The courier is let in, so an
+`answered` alert goes out: *"Call Margaret now."* The scammer's next move is to
+have the protection switched off, and that is a `change` alert a minute later.
+`change` carries no instruction, so the block **hid itself** at the moment the
+situation got worse. The daughter opens her link and finds a status card and a
+list, with nothing telling her to pick up the telephone.
+
+No test could have seen it, because the choice lived in the page. It lives in
+`status()` now — the most recent alert that *asks for something*, inside six
+hours — and the page renders what it is handed. Six tests, and the mutation
+that turns the filter back into "the newest alert" fails two of them.
+
+That is the fourth defect in two days that was invisible to 246 tests because
+it sat in the part a person touches rather than the part the API exposes. The
+pattern is stable enough now to state as a rule: **the suite proves the rules;
+only walking the screens proves the product.**
+
 ## 10. What it deliberately does not do
 
 - **Detect an absence of routine.** A different problem, and another entrant's

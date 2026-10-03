@@ -41,7 +41,7 @@ Track: **Ring**. Images: `cover.png` (1500×1000, 3:2 thumbnail), `cover-wide.pn
 >
 > Measured: through an emulator dropping, duplicating and delaying webhooks, 60
 > courier visits, every family whose doorbell was seen told, no reminder played
-> twice. 246 tests; 45 rules broken on purpose, each caught. The misses are
+> twice. 252 tests; 46 rules broken on purpose, each caught. The misses are
 > published: lose both doorbell webhooks for one visit and nobody is told; a
 > neighbour let in is a false alert; without a sensor a quick handover is missed.
 >
@@ -123,7 +123,7 @@ an MIT emulator we read in full and pinned by hash in its own virtualenv.
 ### Accomplishments that we're proud of
 
 Every number is measured: a scenario table in both modes, a chaos run, and a
-mutation run that breaks 45 rules one at a time and checks that a test fails each
+mutation run that breaks 46 rules one at a time and checks that a test fails each
 time. The false alerts and the misses are published next to the successes.
 
 ### What we learned

@@ -220,7 +220,7 @@ command.
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
-.venv/Scripts/python -m pytest              # 246 tests
+.venv/Scripts/python -m pytest              # 252 tests
 python scripts/setup_sandbox.py             # the Ring emulator, pinned by hash, own venv
 .venv/Scripts/python scripts/live.py        # both servers, real signed webhooks
 ```

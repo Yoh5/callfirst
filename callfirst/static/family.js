@@ -35,8 +35,12 @@ const TODO = {
 };
 
 function todo(s) {
-  const latest = s.alerts[0];
-  const recent = latest && TODO[latest.reason] && Date.now() - new Date(latest.at) < 6 * 3600 * 1000;
+  // The server says which alert is the one to act on: the most recent that
+  // asks for something, not the most recent full stop. Taking `alerts[0]`
+  // hid "Call now" behind the `change` alert that a scammer's next move
+  // produces a minute later.
+  const latest = s.alerts.find((a) => a.id === s.what_to_do);
+  const recent = Boolean(latest) && Boolean(TODO[latest.reason]);
   $("todo").hidden = !recent;
   if (!recent) return;
   const [what, why] = TODO[latest.reason](s.resident);

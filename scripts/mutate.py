@@ -159,6 +159,11 @@ MUTATIONS = [
      "        if False:", "model reads unbounded"),
     ("callfirst/app.py", "        if not admin_token or not hmac.compare_digest(",
      "        if False and not hmac.compare_digest(", "admin API open"),
+    # The family page's one instruction, chosen by the server. Without the
+    # reason filter it becomes "the newest alert", which is what hid "Call now"
+    # behind the pause a scammer asks for a minute later.
+    ("callfirst/app.py", '                                    if a["reason"] in ASK_THE_FAMILY',
+     "                                    if True", "what to do = the newest alert"),
     # An alert with no recipients at all, reporting itself as delivered.
     ("callfirst/store.py",
      '            corps["delivered"] = bool(corps.get("recipients")) and not manques',

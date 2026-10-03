@@ -47,6 +47,15 @@ READS_PER_HOUR = 20          # pasted notices read by a model, per household (OW
 # One cookie per role, so a resident and a trusted person can use the same
 # browser (and the demo can show both views side by side).
 COOKIES = {"resident": "callfirst_resident", "family": "callfirst_family"}
+
+# The alerts that ask the family to do something, and for how long the page
+# says so. The family page used to take the newest alert and show its
+# instruction: a scammer's own sequence -- get in, then get the protection
+# switched off -- made a `change` alert the newest one a minute later, and the
+# instruction "Call Margaret now" vanished exactly when it mattered most. The
+# choice is made here, where it can be tested, and the page only renders it.
+ASK_THE_FAMILY = ("answered", "heightened", "blind")
+WHAT_TO_DO_FOR = timedelta(hours=6)
 STATIC = Path(__file__).parent / "static"
 HEADERS = {
     "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; "
@@ -375,11 +384,18 @@ def create_app(store: Store, ring: Ring | None, webhook_key: str, admin_token: s
                 for s in reversed(store.sent(h.id)) if s["kind"] == "alert"][:30]
 
     def status(h: Household, now: datetime) -> dict:
+        alertes = alerts_of(h)
         return {"resident": h.resident, "timezone": h.timezone, "mode": h.mode,
                 "enabled": h.enabled,
                 "paused_until": local(h, h.paused_until) if h.paused(now) else None,
                 "heightened_until": local(h, h.heightened_until) if h.heightened(now) else None,
-                "doorbell_online": h.doorbell_online, "alerts": alerts_of(h)}
+                "doorbell_online": h.doorbell_online, "alerts": alertes,
+                # The most recent alert that asks for something, not the most
+                # recent alert.
+                "what_to_do": next((a["id"] for a in alertes
+                                    if a["reason"] in ASK_THE_FAMILY
+                                    and datetime.fromisoformat(a["at"])
+                                    > now - WHAT_TO_DO_FOR), None)}
 
     # ------------------------------------------------------------------ the resident
 
