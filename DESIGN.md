@@ -411,6 +411,36 @@ live mutation and reported a failure that was not real — the rate limiter was
 own words: *nothing else may run against the working copy while it does*. The
 warning was mine and I did not follow it. There is nothing to fix in the code.
 
+### The alert addressed to nobody, which said it arrived, found 3 October
+
+`test_nobody_listening.py` covers the resident removing someone — all five of
+its tests go through her page. The path nobody had tested is the realistic one:
+**the daughter unsubscribes herself**, from the link at the bottom of an alert,
+because she changed address or changed job. Same rule underneath, so it ought
+to behave the same.
+
+It did. What did not was the alert that follows. Writing the test, my first
+assertion was `delivered is False or not_delivered == []` — a disjunction that
+passes either way, the defect this project spends its days finding elsewhere.
+Tightening it produced the real answer: `delivered` was **True**.
+
+An alert with no recipients at all has nothing to fail, so `not manques` was
+true and it reported itself as delivered. That is the purest form of what the
+flag exists to prevent: the last trusted person leaves, the door keeps working,
+the chime still plays, every alert is addressed to nobody, and the list says
+they all arrived. No attacker is needed.
+
+And `renderAlerts` has had the message for this exact state from the first day
+— *"This reached nobody. Call them."*, for an empty `not_delivered` — while the
+server could never produce it. A branch written for a state that could not
+happen is a promise nobody was keeping.
+
+`delivered` is now `bool(recipients) and not manques`. Five tests on the
+unsubscribe path, one mutation, and one limit written down rather than fixed:
+the resident has no address in this product, so when the last trusted person
+goes, the only email reaches the person who just left. She learns it from the
+standing line on her own page, which is why that line had to exist.
+
 ## 10. What it deliberately does not do
 
 - **Detect an absence of routine.** A different problem, and another entrant's

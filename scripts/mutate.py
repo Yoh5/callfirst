@@ -34,6 +34,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Named, because every attempt to write them inline in a patch script this week
+# came out as a real newline in the source instead of an escape.
+LF, CRLF = chr(10), chr(13) + chr(10)
+
 ROOT = Path(__file__).resolve().parent.parent
 MUTATIONS = [
     # A window whose end precedes its start runs past midnight -- the night
@@ -155,6 +159,11 @@ MUTATIONS = [
      "        if False:", "model reads unbounded"),
     ("callfirst/app.py", "        if not admin_token or not hmac.compare_digest(",
      "        if False and not hmac.compare_digest(", "admin API open"),
+    # An alert with no recipients at all, reporting itself as delivered.
+    ("callfirst/store.py",
+     '            corps["delivered"] = bool(corps.get("recipients")) and not manques',
+     '            corps["delivered"] = not manques',
+     "an alert addressed to nobody says it arrived"),
     # An installation with no way to send saying so. Silence here means every
     # alert is reported as delivered because the mailer accepted it.
     ("callfirst/app.py",
@@ -179,6 +188,51 @@ MUTATIONS = [
 
 
 JOURNAL = ROOT / ".mutate-restore"
+
+
+def _sabotages() -> list[str]:
+    """Mutations standing in the working copy right now, by whole line.
+
+    Written after a run was killed by an outside time limit and left one
+    mutation in app.py with **no journal on disk** -- a combination this
+    script's own logic says cannot happen, and which its log could not
+    explain because an hour of output was still sitting in a buffer when the
+    process died. The mechanism is still unexplained. What is fixable is the
+    time it takes to find out: this answers "is my tree clean" in a second,
+    without reasoning about it.
+
+    Whole lines, and that part is not a detail. Checking by substring says six
+    mutations are live when one is, because `"        if False:"` is a
+    substring of `"            if False:"` -- the same trap as "ama" inside
+    "jamais", found for the sixth time in two days, this time in my own
+    diagnostic.
+    """
+    vivantes = []
+    for chemin, avant, apres, nom in MUTATIONS:
+        texte = (ROOT / chemin).read_bytes().decode("utf-8").replace(CRLF, LF)
+        # The harness's own notion of a pattern, not a new one. It applies a
+        # mutation when `before` occurs exactly once, so `before` occurring a
+        # different number of times is the whole signal, and `after` only says
+        # which of the two reasons it is. Three wrong rules preceded this one,
+        # each failing in its own direction, which is why each is named here:
+        #
+        #  - substring counting: six live when one was, because
+        #    `"        if False:"` sits inside `"            if False:"`;
+        #  - whole-line equality: none live when one was, because several
+        #    patterns are line prefixes (`"... hmac.compare_digest("` begins a
+        #    line that goes on to `x_admin_token.encode(),`);
+        #  - line-start matching: cried wolf on a clean tree, because a pattern
+        #    that replaces something mid-line has an `after` that legitimately
+        #    starts other lines.
+        #
+        # Each was found by sabotaging a file on purpose and running the check
+        # against it. A gate that has not been made to fail is not a gate.
+        if texte.count(avant) == 1:
+            continue
+        pourquoi = ("a run left this file mutated" if apres and apres in texte
+                    else f"pattern found {texte.count(avant)} times, expected 1")
+        vivantes.append(f"{nom} ({chemin}): {pourquoi}")
+    return vivantes
 
 
 def _rendre(intacts: dict[Path, bytes]) -> None:
@@ -222,6 +276,28 @@ def _repartir_de_zero() -> bool:
 
 
 def main() -> int:
+    # Line-buffered, because a killed run left a zero-byte log: forty-five
+    # minutes of verdicts were in a buffer the process never got to flush.
+    # A harness that reports nothing when it dies is a harness you have to
+    # reason about instead of read.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except (AttributeError, OSError):
+        pass
+
+    if "--check" in sys.argv:
+        vivantes = _sabotages()
+        if vivantes:
+            print("The working copy still carries mutations from an earlier run:")
+            for v in vivantes:
+                print("  " + v)
+            print("")
+            print("Run the harness again -- it restores from .mutate-restore/ --")
+            print("or put these lines back by hand before committing anything.")
+            return 2
+        print(f"Clean: none of the {len(MUTATIONS)} mutations is standing in the tree.")
+        return 0
+
     _repartir_de_zero()
 
     fichiers = {ROOT / path for path, *_ in MUTATIONS}

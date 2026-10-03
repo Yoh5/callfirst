@@ -155,7 +155,15 @@ class Store:
             if not row:
                 return
             corps = json.loads(self._fernet.decrypt(row[0]))
-            corps["delivered"] = not manques
+            # An alert with no recipients at all had nothing to fail, so
+            # `not manques` was True and it reported itself as delivered. That
+            # is the purest form of the thing this flag exists to prevent: the
+            # last trusted person leaves, the door keeps working, every alert
+            # is addressed to nobody, and the list says they all arrived.
+            # `renderAlerts` has had the message for this state from the start
+            # -- "This reached nobody. Call them." for an empty
+            # `not_delivered` -- and the server could never produce it.
+            corps["delivered"] = bool(corps.get("recipients")) and not manques
             corps["not_delivered"] = manques
             self._db.execute("update outbox set body = ? where household = ? and id = ?",
                              (self._fernet.encrypt(json.dumps(corps).encode()),
