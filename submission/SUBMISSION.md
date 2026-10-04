@@ -203,9 +203,14 @@ rather than a feature we planned:
   are now mutations in the harness.
 - **A mutation harness that could sabotage the repository.** It edits
   production source in place; a run killed between the write and the restore
-  left a mutated file in the tree. It now restores from an exit hook and a
-  signal handler, checks every restore, and says whether a missing pattern
-  means the code moved or a previous run was interrupted.
+  left a mutated file in the tree. The first fix was an exit hook and a signal
+  handler, and it was proved insufficient the same day: the process was killed
+  outright, no handler ran, and `rules.py` kept an `if False:` until the next
+  test run tripped over it. Nothing inside a process survives `SIGKILL`, so the
+  originals now go **to disk** before a file is touched, and the next run finds
+  that directory and puts everything back byte for byte. `--check` answers
+  "is my tree clean" in a second, and it took four tries to write a version of
+  that check which could actually fail.
 - **HSTS and a `Permissions-Policy`** that denies camera, microphone and
   location — a product about a doorbell camera saying, in a header a browser
   enforces, that its own pages reach none of them.
@@ -222,11 +227,13 @@ night), and **an alert addressed to nobody reported itself as delivered** — th
 last trusted person leaves, the door keeps working, the chime still plays, and
 the list says every alert arrived.
 
-**One thing to confirm on the Devpost page before submitting:** whether the
-hackathon opened on or before 19 September 2026. If it did, every line of this
-project is inside the window and this section is simply the record. If it opened
-later, the same table is still the honest answer, and the work done inside the
-window is the last four items above.
+> **NE PAS COLLER CE QUI SUIT DANS LE FORMULAIRE — note de travail.**
+>
+> À confirmer sur la page Devpost avant de soumettre : la date d'ouverture du
+> hackathon. Si elle est antérieure ou égale au 19 septembre 2026, toute la
+> frise ci-dessus est dans la fenêtre et la section est simplement le relevé.
+> Si elle est postérieure, le tableau reste la réponse honnête, et ce qui a été
+> fait dans la fenêtre sont les blocs du 1er au 4 octobre.
 
 ---
 
