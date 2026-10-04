@@ -1,0 +1,10 @@
+Ring publishes no simulator for the Partner API.
+
+Every measurement above was taken against ring-sandbox (MIT), an open source
+emulator written by someone else, which we read in full and pinned by hash:
+
+    github.com/josepha-mayo/ring-sandbox
+
+A week of running against it produced one pull request back upstream:
+
+    github.com/josepha-mayo/ring-sandbox/pull/10
