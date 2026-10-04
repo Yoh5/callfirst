@@ -258,8 +258,22 @@ the list says every alert arrived.
 
 ## Built with
 
-python, fastapi, sqlite, ring-partner-api, ring-sandbox, openai, cryptography,
-javascript, html, css
+Relevé dans `requirements.txt` et dans les imports, pas de mémoire — ce champ est
+une affirmation comme une autre, et `openai` y figurait sans `anthropic` alors que
+`reader.py` câble les deux derrière le même contrat.
+
+```
+python, fastapi, uvicorn, pydantic, httpx, sqlite, cryptography, pytest,
+ring-partner-api, ring-sandbox, openai, anthropic, javascript, html, css
+```
+
+Deux choix à défendre si on demande :
+
+- **`pytest` y est**, et ce n'est pas du remplissage : 261 tests et 48 mutations
+  sont une partie de l'argument du projet, pas un détail d'outillage.
+- **aucun SDK de modèle** : les deux fournisseurs sont appelés en HTTP par
+  `httpx`, avec une fonction stricte qui ne peut rendre que des champs. C'est ce
+  qui rend la lecture d'un avis de livraison testable sans réseau.
 
 ## Two entries, one project
 
