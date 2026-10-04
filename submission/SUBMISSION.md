@@ -51,7 +51,12 @@ Track: **Ring**. Images: `cover.png` (1500×1000, 3:2 thumbnail), `cover-wide.pn
 
 ---
 
-## Story (the Devpost "About the project" sections)
+## Story — le champ « About the project »
+
+Les sept titres ci-dessous sont **exactement** ceux du gabarit Devpost, dans son
+ordre. Coller depuis « Inspiration » jusqu'à la fin de la dernière section, en
+remontant les `###` en `##`. Rien d'autre ne va dans ce champ : la frise de
+construction est entrée dans « How we built it », là où un juré la cherche.
 
 ### Inspiration
 
@@ -96,6 +101,20 @@ can only return fields. Either
 way, code validates them against the pasted text. Ring publishes no simulator, so
 everything runs against [ring-sandbox](https://github.com/josepha-mayo/ring-sandbox),
 an MIT emulator we read in full and pinned by hash in its own virtualenv.
+
+**None of this existed before the hackathon**, and the repository's history is the
+evidence rather than a claim:
+
+| | |
+|---|---|
+| First commit | **19 September 2026** — *"Design, agreed before any code"* |
+| Commits | 19 September to 4 October 2026 |
+| Written before the hackathon | nothing |
+
+The order is the one we would defend, and it is visible in the log: the design
+document was agreed first, then the webhook receiver and the rules engine, then
+the measurement scripts, then the pages and an accessibility check — which found
+a real defect, a focus ring at 1.88:1 on a page whose readers need 3:1.
 
 ### Challenges we ran into
 
@@ -148,7 +167,7 @@ to send e-mail at all, reporting its alerts as delivered.
 the shot plan aloud, one click at a time, found more in two hours than the suite
 had in two days.
 
-### What's next
+### What's next for Call First
 
 A real door-sensor household (Ring's sensors are Early Access), the uninstall
 webhook once its payload is documented, and a pilot with a council or a senior
@@ -156,7 +175,7 @@ centre that already hands out doorbells.
 
 ---
 
-## When it was built
+## When it was built — archive, HORS formulaire
 
 The rules ask what was done *during* the hackathon when a project already existed.
 Call First did not exist before this one, and the repository's history is the
