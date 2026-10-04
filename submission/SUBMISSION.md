@@ -122,15 +122,31 @@ an MIT emulator we read in full and pinned by hash in its own virtualenv.
 
 ### Accomplishments that we're proud of
 
-Every number is measured: a scenario table in both modes, a chaos run, and a
-mutation run that breaks 48 rules one at a time and checks that a test fails each
-time. The false alerts and the misses are published next to the successes.
+Every number is measured: a scenario table in both modes, a chaos run at sixty
+households, and a mutation run that breaks 48 rules one at a time and checks that
+a test fails each time. 261 tests. The false alerts and the misses are published
+next to the successes — and so is the claim we had to narrow when a run proved
+the wider one wrong.
 
 ### What we learned
 
 The hardest part of fraud protection is the victim being on the scammer's side, for
 now. A system that the scammer can talk the victim out of is not protection. So
 every way to weaken it has to be loud.
+
+And something about testing that we did not expect. 261 tests found none of the
+last five defects, because all of them call the API — and all five lived in the
+part a person touches: a required form field that made the one refusal this
+project exists for unreachable; a question rendered below the fields it was meant
+to fill, so the first person to use it filled them by hand and never saw it; the
+instruction *"Call Margaret now"* hidden behind the `change` alert a scammer's
+next move produces a minute later; a report link in the alert e-mail that needed
+a session the phone it arrived on had never had; and an installation with no way
+to send e-mail at all, reporting its alerts as delivered.
+
+**The suite proves the rules. Walking the screens proves the product.** Reading
+the shot plan aloud, one click at a time, found more in two hours than the suite
+had in two days.
 
 ### What's next
 
@@ -149,7 +165,7 @@ evidence rather than a claim:
 | | |
 |---|---|
 | First commit | **19 September 2026** — *"Design, agreed before any code"* |
-| Commits | 19 to 2 October 2026 |
+| Commits | 19 September to 4 October 2026 |
 | Written before the hackathon | nothing |
 
 The order is visible in the log and it is the order we would defend: the design
@@ -193,6 +209,18 @@ rather than a feature we planned:
 - **HSTS and a `Permissions-Policy`** that denies camera, microphone and
   location — a product about a doorbell camera saying, in a header a browser
   enforces, that its own pages reach none of them.
+
+On 3 and 4 October, five more, every one of them found by using the product
+rather than by reading it — the list above in *What we learned* is that list.
+Each is in `DESIGN.md` with what it cost, what it would have cost a household,
+and a test that fails without the fix.
+
+Two of them deserve naming here, because they are the product's own promises:
+**a night carer could not be declared** (a window from 22:00 to 06:00 covered no
+time at all, so the one visitor who comes while she sleeps was announced every
+night), and **an alert addressed to nobody reported itself as delivered** — the
+last trusted person leaves, the door keeps working, the chime still plays, and
+the list says every alert arrived.
 
 **One thing to confirm on the Devpost page before submitting:** whether the
 hackathon opened on or before 19 September 2026. If it did, every line of this
