@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Call First - pitch deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+  /* The deck wears the product's own palette and type, because a deck that looks
+     like something else is a deck about something else. Blue is Call First
+     acting, amber is the family being told, green and red are status and never
+     travel without a word beside them. The values are lifted from
+     callfirst/static/style.css rather than chosen again here. */
+  @page { size: 1920px 1080px; margin: 0; }
+  :root {
+    --bg: #FFFFFF; --page: #F8F5EF; --grouped: #F1ECE3;
+    --ink: #18202E; --secondary: #566072; --separator: #E4DDD1;
+    --brand: #1D4E89; --you: #C2620B;
+    --flag: #9A5800; --flag-solid: #C2620B; --clear: #1C7547; --clear-solid: #2E9457;
+    --serif: "Newsreader", Georgia, serif;
+    --sans: "Instrument Sans", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #8a8a86; }
+  body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .slide {
+    width: 1920px; height: 1080px; background: var(--page); position: relative; overflow: hidden;
+    padding: 108px 128px; break-after: page; margin: 0 auto 40px;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  @media print { html, body { background: #fff; } .slide { margin: 0; } }
+  /* Sans ça, le `break-after` de la dernière diapo produit une neuvième
+     page vide — vérifié en comptant les pages du PDF, pas en supposant. */
+  .slide:last-of-type { break-after: auto; }
+
+  .mark { width: 44px; height: 44px; border-radius: 13px; background: var(--brand); display: grid; place-items: center; flex: none; overflow: hidden; }
+  .mark img { width: 44px; height: 44px; display: block; }
+  .brand { position: absolute; left: 128px; bottom: 60px; display: flex; align-items: center; gap: 16px; font-size: 26px; font-weight: 600; }
+  .no { position: absolute; right: 128px; bottom: 66px; font-size: 22px; color: var(--secondary); font-variant-numeric: tabular-nums; }
+
+  h1 { font: 400 132px/1.02 var(--serif); letter-spacing: -0.03em; margin: 0; }
+  h2 { font: 400 72px/1.1 var(--serif); letter-spacing: -0.022em; margin: 0 0 40px; max-width: 1500px; text-wrap: balance; }
+  .kicker { font-size: 25px; font-weight: 600; color: var(--brand); margin: 0 0 22px; }
+  .lede { font-size: 38px; line-height: 1.38; color: var(--secondary); margin: 0; max-width: 1380px; text-wrap: pretty; }
+  .lede b { color: var(--ink); font-weight: 600; }
+  em { font-style: normal; color: var(--brand); }
+
+  .cols { display: flex; gap: 34px; margin-top: 50px; }
+  .card { background: var(--bg); border-radius: 22px; padding: 38px 40px; flex: 1;
+          box-shadow: 0 2px 4px rgba(24,32,46,.05), 0 12px 32px rgba(24,32,46,.05); }
+  .card h3 { font: 600 32px/1.25 var(--sans); margin: 0 0 14px; }
+  .card p { font-size: 27px; line-height: 1.45; color: var(--secondary); margin: 0; }
+  .card .big { font: 600 84px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; display: block; margin-bottom: 10px; }
+  .card.flag { background: linear-gradient(color-mix(in srgb, var(--flag-solid) 12%, #fff), #fff 190px); }
+  .card.clear { background: linear-gradient(color-mix(in srgb, var(--clear-solid) 12%, #fff), #fff 190px); }
+  .card.brandwash { background: linear-gradient(color-mix(in srgb, var(--brand) 9%, #fff), #fff 190px); }
+
+  ul.points { list-style: none; margin: 40px 0 0; padding: 0; max-width: 1480px; }
+  ul.points li { font-size: 32px; line-height: 1.46; margin: 0 0 26px; padding-left: 44px; position: relative; color: var(--secondary); }
+  ul.points li::before { content: ""; position: absolute; left: 0; top: 18px; width: 22px; height: 3px; border-radius: 2px; background: var(--brand); }
+  ul.points b { color: var(--ink); font-weight: 600; }
+
+  /* -- the sequence, which is the whole argument ------------------------------- */
+  .chain { margin-top: 34px; padding-left: 40px; position: relative; max-width: 1650px; }
+  .chain::before { content: ""; position: absolute; left: 9px; top: 26px; bottom: 32px; width: 3px;
+                   background: color-mix(in srgb, var(--brand) 28%, transparent); }
+  .step { position: relative; padding: 14px 0 18px; }
+  .step::before { content: ""; position: absolute; left: -40px; top: 22px; width: 21px; height: 21px;
+                  border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 6px var(--page); }
+  .step:last-child::before { background: var(--you); }
+  .what { display: block; font-size: 21px; font-weight: 600; color: var(--secondary); margin-bottom: 10px; }
+  .said { font: 400 40px/1.3 var(--serif); margin: 0; padding-left: 20px;
+          border-left: 5px solid color-mix(in srgb, var(--brand) 50%, transparent); }
+  .told { font-size: 27px; line-height: 1.42; background: color-mix(in srgb, var(--you) 9%, transparent);
+          border-radius: 15px; padding: 18px 22px; margin: 0; max-width: 1560px; }
+  .note { font-size: 24px; color: var(--secondary); margin: 26px 0 0; }
+
+  .gauges { display: flex; gap: 16px; margin-top: 44px; }
+  .gauge { background: var(--grouped); border-radius: 15px; padding: 22px 26px; flex: 1; }
+  .gauge b { display: block; font: 600 56px/1 var(--sans); font-variant-numeric: tabular-nums; }
+  .gauge span { display: block; font-size: 22px; margin-top: 8px; }
+  .gauge small { display: block; font-size: 18px; color: var(--secondary); margin-top: 4px; }
+  .gauge.held b { color: var(--clear); }
+  .gauge.miss b { color: var(--flag); }
+
+  .title-slide { display: flex; flex-direction: column; justify-content: center; }
+  .rule { width: 190px; height: 5px; background: var(--brand); border-radius: 3px; margin: 44px 0 40px; }
+  .final { display: flex; gap: 20px; margin-top: 52px; flex-wrap: wrap; }
+  .final a { font-size: 30px; color: var(--brand); background: var(--bg); border: 2px solid var(--separator);
+             border-radius: 16px; padding: 18px 28px; text-decoration: none; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- 1 -->
+<section class="slide title-slide">
+  <p class="kicker">Amazon Developer Hackathon &middot; Ring track &middot; October 2026</p>
+  <h1>Call First</h1>
+  <div class="rule"></div>
+  <p class="lede">Courier scams end at the front door.<br><b>So does this.</b></p>
+  <div class="brand"><span class="mark"><img src="logo-mark-512.png" alt=""></span> Call First</div>
+  <div class="no">1</div>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+  <p class="kicker">The problem</p>
+  <h2>The one kind of elder fraud<br>that has to come to the house.</h2>
+  <p class="lede">The call, the fear and the secrecy all happen at a distance. <b>The handover does
+  not.</b> A courier arrives for the cash or the gold, and that is the only moment anyone outside
+  the conversation can see.</p>
+  <div class="cols">
+    <div class="card"><span class="big">1,737</span><p>doorstep pickups counted by the FBI,
+      2023 to May 2025</p></div>
+    <div class="card"><span class="big">$186M</span><p>taken in those pickups</p></div>
+    <div class="card"><span class="big">98%</span><p>of the losses reported by people over 60,
+      per the Boston field office</p></div>
+  </div>
+  <div class="brand"><span class="mark"><img src="logo-mark-512.png" alt=""></span> Call First</div>
+  <div class="no">2</div>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <p class="kicker">Why the obvious approach fails</p>
+  <h2>Alerting on strangers is useless here.<br><em>She is expecting the courier.</em></h2>
+  <p class="lede">Every doorbell on the market can tell her someone unknown is at the door. She
+  already knows. She was told he would come, by someone she believes.</p>
+  <ul class="points">
+    <li>Call First watches for something else: <b>a visitor nobody declared in advance</b>, and
+      <b>the door opening for them</b>.</li>
+    <li>Visits and deliveries are declared calmly, beforehand &mdash; a carer on Tuesdays, a parcel
+      this afternoon. Those ring in silence.</li>
+    <li>Everything else is a question worth one sentence at the door.</li>
+  </ul>
+  <div class="brand"><span class="mark"><img src="logo-mark-512.png" alt=""></span> Call First</div>
+  <div class="no">3</div>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <p class="kicker">How it works &middot; one visit, end to end</p>
+  <div class="chain">
+    <div class="step">
+      <span class="what">An unexpected visitor rings</span>
+      <p class="said">&ldquo;Before you hand anything over, call your family first, and ask for
+        your family word.&rdquo;</p>
+      <p class="note">Played by the Ring chime, in her own hallway. The family word is the one code
+        the scammer cannot know.</p>
+    </div>
+    <div class="step">
+      <span class="what">The door opens anyway</span>
+      <p class="told"><b>Sarah is told at once</b> &mdash; the doorbell&rsquo;s still image, how sure
+        the system is (a door sensor saw it, or only how long he stayed), and one instruction:
+        <b>call Margaret now</b>. A printable report sheet for IC3 and the FTC comes with it.</p>
+    </div>
+    <div class="step">
+      <span class="what">For the next seven days</span>
+      <p class="told">The family is told as soon as anyone unexpected appears &mdash;
+        <b>before</b> the door opens. Couriers come back.</p>
+    </div>
+  </div>
+  <div class="brand"><span class="mark"><img src="logo-mark-512.png" alt=""></span> Call First</div>
+  <div class="no">4</div>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <p class="kicker">The threat the design names first</p>
+  <h2>The victim is on the scammer&rsquo;s side,<br>for now.</h2>
+  <p class="lede">A protection the scammer can talk her out of is not a protection. So
+  <b>every way to weaken it is loud</b>.</p>
+  <ul class="points">
+    <li>Pausing, switching off, adding a visit or a delivery for today, adding a new trusted
+      person: <b>each one tells the family first</b>.</li>
+    <li>A pause <b>ends by itself</b> after twenty-four hours. Nothing stays off because someone
+      forgot.</li>
+    <li>A fake delivery notice, written to make a courier look expected, is <b>refused by code
+      reading the message itself</b>. A model may help read it. It decides nothing.</li>
+  </ul>
+  <div class="brand"><span class="mark"><img src="logo-mark-512.png" alt=""></span> Call First</div>
+  <div class="no">5</div>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <p class="kicker">Measured, not demonstrated</p>
+  <h2>Sixty courier visits, through an emulator<br>that drops one webhook in ten.</h2>
+  <div class="gauges">
+    <div class="gauge held"><b>60 / 60</b><span>families told</span>
+      <small>every household whose doorbell was seen</small></div>
+    <div class="gauge held"><b>0</b><span>reminders played twice</span>
+      <small>duplicated deliveries are absorbed</small></div>
+    <div class="gauge miss"><b>54 / 60</b><span>reminders played</span>
+      <small>a lost doorbell press cannot be recovered</small></div>
+    <div class="gauge"><b>261</b><span>tests</span>
+      <small>and 48 rules broken on purpose</small></div>
+  </div>
+  <p class="note" style="font-size:28px; margin-top:40px"><b>The misses are published next to the
+    successes.</b> Lose both doorbell webhooks for one visit and nobody is told &mdash; about one
+    visit in a hundred, and the Partner API offers no way to ask the doorbell what it saw. A
+    neighbour let in unannounced is a false alert.</p>
+  <div class="brand"><span class="mark"><img src="logo-mark-512.png" alt=""></span> Call First</div>
+  <div class="no">6</div>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+  <p class="kicker">What two days of walking the screens found</p>
+  <h2>The suite proves the rules.<br><em>Walking the screens proves the product.</em></h2>
+  <p class="lede">Five defects, and <b>none of the 261 tests could see them</b> &mdash; they all call
+  the API, and all five lived in the part a person touches.</p>
+  <ul class="points">
+    <li>A required form field made <b>the one refusal this project exists for</b> unreachable: a
+      collection message has no delivery window, so the browser never submitted it.</li>
+    <li>A question rendered <b>below the fields it was meant to fill</b>. The first person to use it
+      filled them by hand and never saw it.</li>
+    <li><b>&ldquo;Call Margaret now&rdquo; hid</b> behind the change alert a scammer&rsquo;s next
+      move produces a minute later.</li>
+    <li>A report link in the alert e-mail needed a session <b>the phone it arrived on had never
+      had</b>.</li>
+  </ul>
+  <div class="brand"><span class="mark"><img src="logo-mark-512.png" alt=""></span> Call First</div>
+  <div class="no">7</div>
+</section>
+
+<!-- 8 -->
+<section class="slide">
+  <p class="kicker">What it will not do</p>
+  <h2>Recognise faces. Call the police.<br>Let a model decide. Run without her say.</h2>
+  <p class="lede">It never tries to identify a visitor. False alerts exist, so people decide. Code
+  checks every reading against the message itself. <b>She switches it on, chooses who is told, and
+  one button deletes everything.</b></p>
+  <p class="note" style="font-size:27px; margin-top:44px">Built on the Ring Partner API. Ring
+    publishes no simulator, so every measurement above was taken against <b>ring-sandbox</b> (MIT),
+    an open source emulator written by someone else &mdash; read in full, pinned by hash, and sent
+    one pull request back.</p>
+  <div class="final">
+    <a href="https://github.com/Yoh5/callfirst">github.com/Yoh5/callfirst</a>
+    <a href="https://callfirst-bgtj.onrender.com/try">callfirst-bgtj.onrender.com/try</a>
+    <a href="https://github.com/josepha-mayo/ring-sandbox/pull/10">ring-sandbox &middot; pull/10</a>
+  </div>
+  <div class="brand"><span class="mark"><img src="logo-mark-512.png" alt=""></span> Call First</div>
+  <div class="no">8</div>
+</section>
+
+</body>
+</html>
