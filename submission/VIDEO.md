@@ -1,5 +1,21 @@
 # Call First: the three-minute video
 
+> **Construite, plus tournée.** `python submission/video/faire_la_video.py` rend
+> `submission/video/callfirst-demo.mp4` : **2:33**, 1280x720, douze scènes. La
+> narration est dite d'abord (voix neuronale `edge-tts`, déclarée synthétique
+> dans la soumission), chaque wav est mesuré à l'échantillon, et chaque scène est
+> tenue exactement cette durée — donc l'image et le son ne peuvent pas dériver.
+> Le script **échoue** si le total atteint 3:00, parce que les deux règlements
+> disent « moins de trois minutes » et qu'Amazon ajoute que les jurés ne sont pas
+> tenus de regarder au-delà. Les douze images produit sont de vraies captures de
+> l'application en train de tourner (`submission/video/captures/`), et les deux
+> panneaux terminal sont `chaos.txt` et `mutate.txt` lus au moment du rendu.
+>
+> Ce qui suit reste le plan de tournage d'origine, gardé parce qu'il porte le
+> texte de la narration et les pièges du tournage à la main. Deux scènes s'y
+> sont ajoutées depuis : **le refus de deviner quel mardi**, et **la feuille de
+> signalement**.
+
 Target 2:45. Narration is about 335 words: at 130 words a minute that leaves
 room to breathe. Record the
 narration first, then the screen to fit it.

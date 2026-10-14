@@ -59,12 +59,17 @@ resident's say, and one button deletes everything.
 
 CHAPTERS
 0:00 A courier at the door
-0:25 Why alerting on strangers fails
-0:45 The run, with a door sensor
-1:25 Without a sensor
-1:40 The tool turned against the resident
-2:05 The numbers
-2:30 What it will not do
+0:20 Why alerting on strangers fails
+0:34 The resident switches it on
+0:45 The reminder, inside the house
+0:58 The door opens, the family is told
+1:07 A collection message, refused
+1:21 An unclear notice: which Tuesday?
+1:29 Turned against the resident
+1:39 The report sheet
+1:52 Measured, not demonstrated
+2:07 The files those numbers come from
+2:18 What it will not do
 
 LINKS
 Code (MIT): https://github.com/Yoh5/callfirst
@@ -87,10 +92,12 @@ product identifies nobody.
 
 - **Visibilité : publique.** Pas « non répertoriée » — le règlement dit
   *publicly visible*.
-- **Les horodatages des chapitres sont ceux du plan**, pas de ton montage.
-  Corrige-les après l'export, sinon ils tombent au mauvais endroit. YouTube
-  exige que le premier soit `0:00`, qu'il y en ait au moins trois, et au moins
-  dix secondes entre deux.
+- **Les horodatages ci-dessus sont ceux du montage réel**, pas du plan : ils
+  sortent de `submission/video/chapitres.txt`, que `faire_la_video.py` réécrit
+  à chaque rendu depuis la durée mesurée de chaque phrase. Si tu reconstruis la
+  vidéo après avoir changé une phrase, recopie ce fichier ici. YouTube exige que
+  le premier soit `0:00`, qu'il y en ait au moins trois, et au moins dix
+  secondes entre deux — les trois tiennent.
 - **Sous-titres** : laisse YouTube les générer, puis **relis-les**. Il écrit
   « ring sandbox » n'importe comment et massacre les chiffres (`52 of 60`).
 - **Pas de musique sous droits** — le règlement l'interdit explicitement.

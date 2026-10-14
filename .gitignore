@@ -6,3 +6,4 @@ __pycache__/
 data/
 .pytest_cache/
 .mutate-restore/
+submission/video/_travail/

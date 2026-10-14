@@ -1,0 +1,12 @@
+0:00 FBI IC3, 2023 to May 2025
+0:20 the whole design, in one line
+0:34 the resident switches it on — it is never switched on for her
+0:45 the reminder played, inside the house
+0:58 the door sensor saw it — the still is an illustration, nobody is identified
+1:07 refused by code that reads the message itself
+1:21 a guess here would open the door for the wrong visitor
+1:29 Margaret paused it — Sarah already knows
+1:39 the handover is the only part of this scam that happens in the open
+1:52 the claim, on the page a visitor reads
+2:07 submission/chaos.txt and submission/mutate.txt, read at build time
+2:18 Call First — github.com/Yoh5/callfirst (MIT) · narration is synthetic
