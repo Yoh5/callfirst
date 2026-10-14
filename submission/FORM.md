@@ -259,3 +259,64 @@ And one feature request, with a number attached: expose the last ding in device
 status. Four to eight of every sixty reminders are lost today because a dropped
 button press cannot be recovered, and that endpoint would make it zero.
 ```
+
+---
+
+## Which AI tools have you leveraged while working on this project?
+
+Trois usages distincts, et le champ gagne à les séparer : un modèle **dans** le
+produit, un assistant **pour** l'écrire, une voix **pour** la vidéo. Mélanger
+les trois est ce qui fait qu'un juré ne sait plus ce qui décide quoi.
+
+### Réponse à coller
+
+```
+Three different things, kept apart on purpose.
+
+1. A model inside the product, with no authority.
+
+callfirst/reader.py sends a pasted delivery notice to one model — OpenAI
+(gpt-5.6-luna) if OPENAI_API_KEY is set, otherwise Anthropic
+(claude-haiku-4-5) — through a single tool call whose only effect is to
+return fields: carrier, tracking number, delivery window, signature.
+
+It proposes. It never decides. deliveries.validate() reads the pasted text
+itself and accepts or refuses, and a message about someone coming to collect
+is refused whatever the model said. The model has no other tool, no database,
+and no way to take an action. The worst a hostile notice can do (OWASP LLM01)
+is propose a wrong carrier or a wrong window, and validation reads the
+original text, not the model's answer.
+
+It is also optional. With no API key, a timeout, or an answer that is not the
+requested shape, it falls back to a rule-based reader and the resident fills
+in what is missing. Every test in the suite passes with no key set, so a judge
+needs no account to run the whole thing.
+
+2. An AI coding assistant, as the rules allow.
+
+Claude (Claude Code) was used throughout: application code, the 267-test
+suite, the mutation harness that breaks 48 rules on purpose, the chaos
+harness, the documentation, and the video renderer. Every design decision,
+every published figure and the final submission are mine, and I take
+responsibility for them.
+
+It also found two defects in this submission that I had not: the landing page
+claimed "32 / 32 rules broken on purpose" after sixteen more were added, and
+the keep-awake workflow claimed to ping the demo every fourteen minutes when
+GitHub was actually running it every three to six hours. Both are fixed, and
+the first is now pinned by tests/test_chiffres_publies.py.
+
+3. A synthetic voice for the demo video.
+
+The narration is edge-tts (en-US-AndrewNeural). No human voice is recorded
+and none is implied. submission/video/faire_la_video.py speaks each sentence
+first, measures the wav, and holds the matching scene for exactly that long,
+so picture and sound cannot drift; it refuses to build if the result reaches
+three minutes.
+
+What is NOT AI-generated: the doorbell still image in the demo is drawn with
+Pillow by scripts/make_demo_still.py — geometry, not a generated image — so
+it shows no real person and carries nobody else's copyright. It is marked
+ILLUSTRATION on screen. This product recognises no faces and identifies
+nobody.
+```
