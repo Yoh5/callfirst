@@ -1,5 +1,9 @@
 # Le reste du formulaire Devpost — réponses à coller
 
+<!-- audit-chiffres: gele
+     Formulaire déposé. Et le « 58 tests » qu'il cite parle du dépôt AMONT
+     `ring-sandbox`, pas de celui-ci — le contrôle ne peut pas le deviner. -->
+
 ⚠️ **Les réponses 3 et 5 dérivent de `FRICTION.md`**, qui est la source. Si une
 entrée y change, cette page change aussi — c'est une copie nécessaire (le
 formulaire veut du texte autonome), pas une seconde vérité.

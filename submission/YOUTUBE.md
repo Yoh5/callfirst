@@ -1,5 +1,8 @@
 # La vidéo sur YouTube — titre, description, chapitres
 
+<!-- audit-chiffres: gele
+     Description de la vidéo déposée : elle est en ligne telle quelle. -->
+
 Le règlement exige une vidéo **publique** sur YouTube ou Vimeo, en anglais, de
 moins de trois minutes. Donc tout ce qui suit est en anglais : c'est ce que le
 juré lit.

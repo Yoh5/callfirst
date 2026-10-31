@@ -1,5 +1,9 @@
 # Call First: Devpost submission text
 
+<!-- audit-chiffres: gele
+     Pièce déposée au hackathon Amazon Ring (clos le 23/10/2026). Les 261 tests
+     sont ce que le dépôt comptait au dépôt ; il en compte 267 aujourd'hui. -->
+
 Track: **Ring**. Images: `cover.png` (1500×1000, 3:2 thumbnail), `cover-wide.png`
 (1280×640, GitHub social preview), `logo.png`, `logo-mark-512.png`.
 

@@ -1,5 +1,8 @@
 # Contribution to ring-sandbox — the Open Source mini-challenge
 
+<!-- audit-chiffres: gele
+     Le « 58 tests » décrit la suite du dépôt AMONT `ring-sandbox`. -->
+
 **Opened on 1 October 2026:**
 **https://github.com/josepha-mayo/ring-sandbox/pull/10**
 
